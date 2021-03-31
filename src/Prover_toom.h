@@ -120,6 +120,10 @@ class Prover_toom {
 
 	ZZ Sigma_C; //sum over the elements C times the challenges
 
+	long omega; //window size for multi-exponentiation technique
+	vector<vector<long>* >* basis_chal_x8; //Vector of basis_vec for multi-expo
+	vector<ZZ>* mul_chal_x8; //Vector of basis_vec for multi-expo
+
 public:
 	Prover_toom();
 	Prover_toom(vector<vector<Cipher_elg>* >* E, vector<vector<ZZ>*>* R, vector<vector<vector<long>* >* >* pi, vector<long> num, ZZ genq);
@@ -128,30 +132,30 @@ public:
 	//round_1 calculates and returns the commitment to the row in Y
 	string round_1();
 	//round_3 calculates and returns the commitment to permuted exponents s_1(i)*s_2(j)
-	string round_3(string name);
+	string round_3();
 	//round_5a calculates the commitments to the vectors h, W, and C,c and returns them
 	void round_5a();
 	void round_5b();
 	//round_5, combines the round 5a and 5b
-	string round_5(string name );
+	string round_5();
 	//calculates the first set of extra Elements for the reduction loop
-	string round_5_red(string name);
+	// string round_5_red(string name);
 	//last reduction from m=16 to m=4, after reduction loop, calls also 5a
-	string round_5_red1(string name);
+	// string round_5_red1(string name);
 	//round_5_opt_red, combines the round 5a and 5b_red
 //	string round_5_red2(string name );
 	//round_7a calculates the commitments to the vectors C and c
 	void round_7a();
 	void round_7b();
 	void round_7c();
-	void round_7c_red();
+	// void round_7c_red();
 	//round_7 reads the values in and writes them, and combines 7a-7c
-	string round_7(string name);
-	string round_7_red(string name);
+	string round_7();
+	// string round_7_red();
 	void round_9a();
 	void round_9b();
 	void round_9c();
-	string round_9(string name);
+	string round_9();
 
 	void commit_ac();
 	void calculate_Cc(vector<vector<Cipher_elg>* >* C, vector<vector<vector<long>*>* >* B);

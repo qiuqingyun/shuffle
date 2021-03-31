@@ -417,131 +417,78 @@ int shuffle_w_toom(vector<vector<Cipher_elg>* >* c, vector<vector<Cipher_elg>* >
 	time_v =0;
 	tstart_t = (double)clock()/CLOCKS_PER_SEC;
 
+	string files[5];
+
 	//round_1 Prover对permutation矩阵A的每一行生成一个随机数和承诺
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_1();
+files[0] = P->round_1();
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_p+=ttime;
 
 	//round_2 Verifier接收Prover对矩阵A的承诺，并生成随机挑战x
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = V->round_2(file_name);
+file_name = V->round_2(files[0]);
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_v+=ttime;
 
 	//round_3 Prover计算x^(π_1), ... ,x^(π_N)，生成矩阵B，并对矩阵B每行进行承诺
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_3(file_name);
+files[1] = P->round_3();
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_p+=ttime;
 
 	//round_4 Verifier接收Prover对B的承诺，并生成随机挑战y和z
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = V->round_4(file_name);
+file_name = V->round_4(files[1]);
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_v+=ttime;
 
-if(m_r ==4){
 	//round_5
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_5(file_name);
+files[2] = P->round_5();
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_p+=ttime;
 
 	//round_6 Verifier生成随机挑战x6,y6
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = V->round_6(file_name);
+file_name = V->round_6(files[2]);
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_v+=ttime;
 
 	//round_7
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_7(file_name);
+files[3] = P->round_7();
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_p+=ttime;
 
 	//round_8
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-	file_name = V-> round_8(file_name);
+file_name = V-> round_8(files[3]);
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_v+=ttime;
 
 	//round_9
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_9(file_name);
+files[4] = P->round_9();
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_p+=ttime;
 
 	//round_10
 	tstart = (double)clock()/CLOCKS_PER_SEC;
-ans = V->round_10(file_name,c,C);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_v+=ttime;
-}
-else{
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_5_red(file_name);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_p+=ttime;
-
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = V->round_6_red(file_name,c);
+ans = V->round_10(files,c,C);
 	tstop = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop-tstart;
 	time_v+=ttime;
 
-	m_r=m_r/mu;
-/*	while(m_r>mu){
-		cout<<"This still needs of programming, but only happen if m=256";
-		m_r=m_r/mu;
-	}*/
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_5_red1(file_name);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_p+=ttime;
-
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = V->round_6_red1(file_name);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_v+=ttime;
-
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_7_red(file_name);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_p+=ttime;
-
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = V->round_8(file_name);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_v+=ttime;
-
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-file_name = P->round_9(file_name);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_p+=ttime;
-
-	tstart = (double)clock()/CLOCKS_PER_SEC;
-ans = V->round_10_red(file_name,c,C);
-	tstop = (double)clock()/CLOCKS_PER_SEC;
-	ttime= tstop-tstart;
-	time_v+=ttime;
-}
 
 	tstop_t = (double)clock()/CLOCKS_PER_SEC;
 	ttime= tstop_t-tstart_t;

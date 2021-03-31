@@ -117,13 +117,13 @@ string Verifier_toom::round_2(string in_name)
 	{//接收round_1中Prover的承诺
 		ist >> c_A->at(i);
 	}
-	//生成随机挑战
-	chal_x2 = RandomBnd(ord);
 
+	//生成随机挑战
+	/* chal_x2 = RandomBnd(ord);
 	name = "round_2 ";
 	name = name + ctime(&rawtime);
 	ofstream ost(name.c_str());
-	ost << chal_x2;
+	ost << chal_x2; */
 
 	return name;
 }
@@ -144,8 +144,10 @@ string Verifier_toom::round_4(string in_name)
 		ist >> c_B->at(i);
 	}
 
+	ist>>chal_x2;
+
 	//Set name of the output file and open stream
-	name = "round_4 ";
+	/* name = "round_4 ";
 	name = name + ctime(&rawtime);
 
 	chal_z4 = RandomBnd(ord);
@@ -153,7 +155,7 @@ string Verifier_toom::round_4(string in_name)
 
 	ofstream ost(name.c_str());
 	ost << chal_z4 << "\n";
-	ost << chal_y4;
+	ost << chal_y4; */
 	return name;
 }
 
@@ -190,9 +192,11 @@ string Verifier_toom::round_6(string in_name)
 		ist >> c_a_c->at(i);
 		// cout<<c_a_c->at(i)<<" ";
 	}
+	ist>>chal_z4;
+	ist>>chal_y4;
 	// cout<<endl;
 
-	//sets the vector t to the values temp, temp^2,...
+	/* //sets the vector t to the values temp, temp^2,...
 	func_ver::fill_vector(chal_x6);
 
 	//sets the vector t to the values temp, temp^2,...
@@ -211,119 +215,7 @@ string Verifier_toom::round_6(string in_name)
 	{
 		ost << chal_y6->at(i) << "\n";
 	}
-	ost << "\n";
-
-	return name;
-}
-
-string Verifier_toom::round_6_red(string in_name, vector<vector<Cipher_elg> *> *enc)
-{
-	long i;
-	ZZ tem;
-	ZZ ord = H.get_ord();
-	Cipher_elg c;
-	Mod_p temp;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	//reads the values out of the file name
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	for (i = 0; i < mu_h; i++)
-	{
-		ist >> C_c->at(i);
-	}
-	for (i = 0; i < mu_h; i++)
-	{
-		ist >> c_a_c->at(i);
-	}
-
-	//calculate the value of c
-	calculate_c(c, enc);
-
-	temp = Mod_p(1, H.get_mod()); //a_a_c->at(mu-1) should equal the commitment to 0
-	if (c_a_c->at(mu - 1) == temp & c == C_c->at(mu - 1))
-	{
-		//sets the vector x to the values temp, temp^2,...
-		func_ver::fill_vector(x);
-	}
-	name = "round_6 ";
-	name = name + ctime(&rawtime);
-
-	ofstream ost(name.c_str());
-	for (i = 0; i < mu_h; i++)
-	{
-		ost << x->at(i) << "\n";
-	}
-	return name;
-}
-
-string Verifier_toom::round_6_red1(string in_name)
-{
-	long i, l;
-	Mod_p temp, com;
-	Cipher_elg C;
-	ZZ mod = G.get_mod();
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	//calculates the product of the the old commitments a_a_c to the power of x
-	calculate_ac(com);
-
-	//Combines the committed values to B in the vector c_B_small with challenges x
-	reduce_c_B();
-
-	//calulates the new value C
-	calculate_C(C, C_c, x);
-
-	//reads the values out of the file name
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	ist >> c_z;
-	for (i = 0; i < m; i++)
-	{
-		ist >> c_Dh->at(i);
-	}
-	for (i = 0; i < mu_h; i++)
-	{
-		ist >> C_c->at(i);
-	}
-	for (i = 0; i < mu_h; i++)
-	{
-		ist >> c_a_c->at(i);
-	}
-	ist >> a_c_bar;
-	ist >> r_ac_bar;
-
-	temp = Mod_p(1, mod); //a_a_c->at(mu-1) should equal the commitment to 0
-	if (c_a_c->at(mu - 1) == temp & com == Ped.commit(a_c_bar, r_ac_bar) & C == C_c->at(mu - 1))
-	{
-		//sets the vector chal_x6 to the values temp, temp^2,...
-		func_ver::fill_vector(chal_x6);
-
-		//sets the vector chal_y6 to the values temp, temp^2,...
-		func_ver::fill_vector(chal_y6);
-	}
-
-	name = "round_6 ";
-	name = name + ctime(&rawtime);
-
-	l = 2 * m;
-	ofstream ost(name.c_str());
-	for (i = 0; i < l; i++)
-	{
-		ost << chal_x6->at(i) << "\n";
-	}
-	ost << "\n";
-	for (i = 0; i < n; i++)
-	{
-		ost << chal_y6->at(i) << "\n";
-	}
-	ost << "\n";
+	ost << "\n"; */
 
 	return name;
 }
@@ -361,8 +253,19 @@ string Verifier_toom::round_8(string in_name)
 		ist >> c_a->at(i);
 	}
 
-	func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega);
-	l = chal_x8->size();
+	l = 2 * m;
+	for (i = 0; i < l; i++)
+	{
+		ist >> chal_x6->at(i);
+	}
+
+	for (i = 0; i < n; i++)
+	{
+		ist >> chal_y6->at(i);
+	}
+
+	/*func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega);
+	 l = chal_x8->size();
 
 	name = "round_8 ";
 	name = name + ctime(&rawtime);
@@ -370,15 +273,16 @@ string Verifier_toom::round_8(string in_name)
 	for (i = 0; i < l; i++)
 	{
 		ost << chal_x8->at(i) << "\n";
-	}
+	} */
 	return name;
 }
 
-int Verifier_toom::round_10(string in_name, vector<vector<Cipher_elg> *> *enc, vector<vector<Cipher_elg> *> *C)
+int Verifier_toom::round_10(string files[5], vector<vector<Cipher_elg> *> *enc, vector<vector<Cipher_elg> *> *C)
 {
 	int b;
 	long i;
 	//reads the values out of the file name
+	string in_name=files[4];
 	ifstream ist(in_name.c_str());
 	if (!ist)
 		cout << "Can't open " << in_name;
@@ -419,6 +323,52 @@ int Verifier_toom::round_10(string in_name, vector<vector<Cipher_elg> *> *enc, v
 	ist >> a_bar;
 	ist >> r_a_bar;
 	ist >> rho_bar;
+
+	int chal_x8_size;
+	ist >> chal_x8_size;
+	for (i = 0; i < chal_x8_size; i++)
+	{
+		ist >> chal_x8->at(i);
+	} 
+
+	int basis_chal_x8_size,basis_chal_x8_s_size;
+	ist >> basis_chal_x8_size;
+	ist >> basis_chal_x8_s_size;
+	for (i = 0; i < basis_chal_x8_size; i++)
+	{	
+		vector<long> *x8;
+		x8=new vector<long>(basis_chal_x8_s_size);
+		for (int j = 0; j < basis_chal_x8_s_size; j++)
+		{
+			long x8_temp;
+			ist >> x8_temp;
+			x8->at(j)=x8_temp;
+			// cout << x8_temp << " "<<flush;
+		} 
+			basis_chal_x8->at(i)=x8;
+			// cout << "\n";
+	} 
+
+	/* cout << "\n";
+	for (i = 0; i < basis_chal_x8->size(); i++)
+	{
+		for (int j = 0; j < basis_chal_x8->at(0)->size(); j++)
+		{
+			cout << basis_chal_x8->at(i)->at(j) << " "<<flush;
+		} 
+		cout << "\n";
+	} 
+	cout << "\n"; */
+
+	int mul_chal_x8_size;
+	ist >> mul_chal_x8_size;
+
+	for (i = 0; i < mul_chal_x8_size; i++)
+	{
+		ist >> mul_chal_x8->at(i);
+	} 
+
+	ist >> omega;
 
 	//Check that the D_hi's are constructed correctly
 	b = func_ver::check_Dh_op(c_Dh, mul_chal_x8, D_h_bar, r_Dh_bar, omega_LL);
@@ -461,116 +411,6 @@ int Verifier_toom::round_10(string in_name, vector<vector<Cipher_elg> *> *enc, v
 										if (b == 1)
 										{
 											//Check the the reencryption of the E_c is correct
-											b = check_ac();
-											if (b == 1)
-											{
-												cout<<"Accept!"<<endl;
-												return 1;
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	cout<<"Error!"<<endl;
-	return -1;
-}
-
-int Verifier_toom::round_10_red(string in_name, vector<vector<Cipher_elg> *> *enc, vector<vector<Cipher_elg> *> *C)
-{
-	int b;
-	long i;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	//reads the values out of the file name
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	for (i = 0; i < n; i++)
-	{
-		ist >> D_h_bar->at(i);
-	}
-	ist >> r_Dh_bar;
-
-	for (i = 0; i < n; i++)
-	{
-		ist >> d_bar->at(i);
-	}
-	ist >> r_d_bar;
-	for (i = 0; i < n; i++)
-	{
-		ist >> Delta_bar->at(i);
-	}
-	ist >> r_Delta_bar;
-
-	for (i = 0; i < n; i++)
-	{
-		ist >> A_bar->at(i);
-	}
-	ist >> r_A_bar;
-	for (i = 0; i < n; i++)
-	{
-		ist >> Ds_bar->at(i);
-	}
-	ist >> r_Ds_bar;
-	ist >> r_Dl_bar;
-
-	for (i = 0; i < n; i++)
-	{
-		ist >> B_bar->at(i);
-	}
-	ist >> r_B_bar;
-	ist >> a_bar;
-	ist >> r_a_bar;
-	ist >> rho_bar;
-	//Check that the Dhi's are constructed correctly
-	b = func_ver::check_Dh_op(c_Dh, mul_chal_x8, D_h_bar, r_Dh_bar, omega_sw);
-	if (b == 1)
-	{
-		//Check that matrix D is constructed correctly
-		b = func_ver::check_D_op(c_D0, c_z, c_A, c_B, chal_x8, chal_y4, A_bar, r_A_bar, n);
-		if (b == 1)
-		{
-			//Check that Ds is constructed correctly
-			b = func_ver::check_Ds_op(c_Ds, c_Dh, c_Dm, chal_x6, chal_x8, Ds_bar, r_Ds_bar);
-			if (b == 1)
-			{
-				//Check that the Dl's are correct
-				b = func_ver::check_Dl_op(c_Dl, chal_x8, A_bar, Ds_bar, chal_y6, r_Dl_bar);
-				if (b == 1)
-				{
-					//Check that vector d was constructed correctly
-					b = func_ver::check_d_op(c_Dh, c_d, chal_x8, d_bar, r_d_bar);
-					if (b == 1)
-					{
-						//Check that Deltas are constructed correctly
-						b = func_ver::check_Delta_op(c_dh, c_Delta, chal_x8, Delta_bar, d_bar, r_Delta_bar, chal_x2, chal_z4, chal_y4);
-						if (b == 1)
-						{
-							//Check that the commitments c_B contain the right values
-							b = check_B_red();
-							if (b == 1)
-							{
-								//Check that the reecncryption was done correctly
-								b = check_a();
-								if (b == 1)
-								{
-									// D->at(4) = C
-									b = check_c_red(); //Both commitments shoud be com(0,0)
-									if (b == 1 & c_a->at(4) == c_a_c->at(3))
-									{
-										//Check correctness of the ciphertexts
-										b = check_E_red(C);
-										if (b == 1)
-										{
-											//Check the the reencryption of the c_c is correct
 											b = check_ac();
 											if (b == 1)
 											{
@@ -833,11 +673,22 @@ int Verifier_toom::check_E(vector<vector<Cipher_elg> *> *C)
 
 	multi_expo::expo_mult(t_D, E, basis_chal_x8, omega);
 
+	/* cout << "\n";
+	for (i = 0; i < basis_chal_x8->size(); i++)
+	{
+		for (int j = 0; j < basis_chal_x8->at(0)->size(); j++)
+		{
+			cout << basis_chal_x8->at(i)->at(j) << " ";
+		} 
+		cout << "\n";
+	} 
+	cout << "\n"; */
+
 	delete chal_1_temp;
 	delete chal_2_temp;
 	Functions::delete_vector(C_small);
-	//	cout<<"E"<<t_D<<endl;
-	//	cout<<"E"<<c_D<<endl;
+		// cout<<"E"<<t_D<<endl;
+		// cout<<"E"<<c_D<<endl;
 	if (t_D == c_D)
 	{
 		return 1;

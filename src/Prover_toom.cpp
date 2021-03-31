@@ -17,6 +17,7 @@
 #include "func_pro.h"
 #include <fstream>
 #include <time.h>
+#include "func_ver.h"
 
 #include <NTL/ZZ.h>
 NTL_CLIENT
@@ -40,6 +41,7 @@ Prover_toom::Prover_toom(vector<vector<Cipher_elg> *> *Cin, vector<vector<ZZ> *>
 	// set the dimensions of the row and columns according to the user input
 	m = num[1];			  //number of rows
 	n = num[2];			  //number of columns
+	omega = num[3];
 	C = Cin;			  //sets the reencrypted chipertexts to the input
 	R = Rin;			  //sets the random elements to the input
 	pi = piin;			  // sets the permutation to the input
@@ -56,6 +58,9 @@ Prover_toom::Prover_toom(vector<vector<Cipher_elg> *> *Cin, vector<vector<ZZ> *>
 	chal_y6 = new vector<ZZ>(n);		 //y6, y6^2, ... challenges form round 6
 	chal_x8 = new vector<ZZ>(2 * m + 1); //x8, x8^2, ... challenges from round 8
 
+	basis_chal_x8 = new vector<vector<long> *>(2 * m + 2); //basis of vector e for multi-expo technique
+	mul_chal_x8 = new vector<ZZ>(2 * m + 2);			   //shifted vector e, e(0) = 1, used for multi-expo
+	
 	//Allocate the storage needed for the vectors
 	c_A = new vector<Mod_p>(m + 1); //commitments to the rows in A
 	r_A = new vector<ZZ>(m + 1);	//random elements used for the commitments
@@ -178,25 +183,31 @@ string Prover_toom::round_1()
 	{
 		ost << c_A->at(i) << "\n";
 	}
+	ost.close();
 	return name;
 }
 
 //round_3, permuted the exponents in s,  picks random elements and commits to values
-string Prover_toom::round_3(string in_name)
+string Prover_toom::round_3()
 {
 	long i;
 	ZZ x2;
 	vector<vector<ZZ> *> *chal_x2 = new vector<vector<ZZ> *>(m);
+	ZZ ord = H.get_ord();
 
 	string name;
 	time_t rawtime;
 	time(&rawtime);
 
 	//reads in values of s
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	ist >> x2;//round_2中Verifier生成的挑战
+	// ifstream ist(in_name.c_str());
+	// if (!ist)
+	// 	cout << "Can't open " << in_name;
+	
+	// ist >> x2;//round_2中Verifier生成的挑战
+
+	// 随机挑战x
+	x2 = RandomBnd(ord);
 
 	//生成内容为x2, x2^2, ... , x2^N的顺序矩阵chal_x2
 	func_pro::set_x2(chal_x2, x2, m, n);
@@ -216,7 +227,9 @@ string Prover_toom::round_3(string in_name)
 	{
 		ost << c_B->at(i) << "\n";
 	}
-
+	ost << endl;
+	ost << x2 << endl;
+	ost.close();
 	Functions::delete_vector(chal_x2);
 	return name;
 }
@@ -264,19 +277,24 @@ void Prover_toom::round_5b()
 	calculate_Cc(C, basis_B);
 }
 
-string Prover_toom::round_5(string in_name)
+string Prover_toom::round_5()
 {
 	long i;
 	string name;
 	time_t rawtime;
 	time(&rawtime);
+	ZZ ord = H.get_ord();
 
 	//reads the values out of the file
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	ist >> chal_z4;//round_4中Verifier生成的挑战z
-	ist >> chal_y4;//round_4中Verifier生成的挑战y
+	// ifstream ist(in_name.c_str());
+	// if (!ist)
+	// 	cout << "Can't open " << in_name;
+	// ist >> chal_z4;//round_4中Verifier生成的挑战z
+	// ist >> chal_y4;//round_4中Verifier生成的挑战y
+
+	// 随机挑战y,z
+	chal_z4 = RandomBnd(ord);
+	chal_y4 = RandomBnd(ord);
 
 	round_5a();//构建矩阵D，并对向量chal_z和D_h做承诺
 	round_5b();
@@ -302,106 +320,10 @@ string Prover_toom::round_5(string in_name)
 	{
 		ost << c_a_c->at(i) << "\n";
 	}
-	return name;
-}
-
-string Prover_toom::round_5_red(string in_name)
-{
-	long i;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	//reads the values out of the file
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	ist >> chal_z4;
-	ist >> chal_y4;
-
-	func_pro::set_Rb(B, R, R_b);
-	commit_ac();
-
-	calculate_Cc(C, basis_B);
-
-	name = "round_5_red ";
-	name = name + ctime(&rawtime);
-
-	ofstream ost(name.c_str());
-	for (i = 0; i < mu_h; i++)
-	{
-		ost << C_c->at(i) << "\n";
-	}
 	ost << "\n";
-	for (i = 0; i < mu_h; i++)
-	{
-		ost << c_a_c->at(i) << "\n";
-	}
-	return name;
-}
-
-string Prover_toom::round_5_red1(string in_name)
-{
-	long i;
-	double tstart, tstop;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	x = new vector<ZZ>(mu_h);
-
-	//reads the values out of the file
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	//reads challenges x
-	for (i = 0; i < mu_h; i++)
-	{
-		ist >> x->at(i);
-	}
-
-	//Call of round 5a
-	round_5a();
-
-	//calculate F_c and Z_c for the first reduction
-	calculate_ac_bar(x);
-	calculate_r_ac_bar(x);
-
-	//reduction from m rows to m_r rows
-	tstart = (double)clock() / CLOCKS_PER_SEC;
-	reduce_C(C, B, r_B, x, 4 * m_r);
-	tstop = (double)clock() / CLOCKS_PER_SEC;
-	time_di = time_di + tstop - tstart;
-
-	set_Rb1(x);
-	commit_ac();
-	calculate_Cc(C_small, B_small);
-
-	delete x;
-
-	//Set name of the output file and open stream
-	name = "round_5 ";
-	name = name + ctime(&rawtime);
-
-	ofstream ost(name.c_str());
-	//writes the commitments in the file
-	ost << c_z << "\n";
-	for (i = 0; i < m; i++)
-	{
-		ost << c_D_h->at(i) << "\n";
-	}
-	ost << "\n";
-	for (i = 0; i < mu_h; i++)
-	{
-		ost << C_c->at(i) << "\n";
-	}
-	ost << "\n";
-	for (i = 0; i < mu_h; i++)
-	{
-		ost << c_a_c->at(i) << "\n";
-	}
-	ost << a_c_bar << endl;
-	ost << r_ac_bar << endl;
+	ost << chal_z4 << "\n";
+	ost << chal_y4 << endl; 
+	ost.close();
 	return name;
 }
 
@@ -456,54 +378,15 @@ void Prover_toom::round_7c()
 	Functions::delete_vector(C_small);
 }
 
-void Prover_toom::round_7c_red()
-{
-	vector<Cipher_elg> *e = 0;
-	double tstart, tstop;
-	vector<vector<Cipher_elg> *> *C_small_temp = 0;
-	vector<vector<ZZ> *> *B_small_temp = 0;
-	vector<ZZ> *r_B_small_temp = 0;
-
-	tstart = (double)clock() / CLOCKS_PER_SEC;
-	C_small_temp = copy_C();
-	B_small_temp = copy_B();
-	r_B_small_temp = copy_r_B();
-
-	C_small = new vector<vector<Cipher_elg> *>(m_r);
-	B_small = new vector<vector<ZZ> *>(m_r);
-	r_B_small = new vector<ZZ>(m_r);
-
-	reduce_C(C_small_temp, B_small_temp, r_B_small_temp, chal_x6, m_r);
-	set_Rb1(chal_x6);
-	tstop = (double)clock() / CLOCKS_PER_SEC;
-	time_di = time_di + tstop - tstart;
-
-	func_pro::commit_a_op(a, r_a, c_a);
-	func_pro::commit_B0_op(B_0, basis_B0, r_B0, c_B0, omega_mulex);
-
-	tstart = (double)clock() / CLOCKS_PER_SEC;
-	e = calculate_e();
-	tstop = (double)clock() / CLOCKS_PER_SEC;
-	time_di = time_di + tstop - tstart;
-	//cout<<"To calculate the di's took "<<time_di<<" sec."<<endl;
-
-	calculate_E(e);
-
-	Functions::delete_vector(C_small);
-	Functions::delete_vector(C_small_temp);
-	Functions::delete_vector(B_small_temp);
-	delete r_B_small_temp;
-	delete e;
-}
-
-string Prover_toom::round_7(string in_name)
+string Prover_toom::round_7()
 {
 	long i, l;
 	string name;
 	time_t rawtime;
 	time(&rawtime);
+	l = 2 * m;
 	//reads the values out of the file
-	ifstream ist(in_name.c_str());
+	/* ifstream ist(in_name.c_str());
 	if (!ist)
 		cout << "Can't open " << in_name;
 	//reads the vector t_1
@@ -516,7 +399,12 @@ string Prover_toom::round_7(string in_name)
 	for (i = 0; i < n; i++)
 	{
 		ist >> chal_y6->at(i);
-	}
+	} */
+
+	// 随机挑战
+	//sets the vector t to the values temp, temp^2,...
+	func_ver::fill_vector(chal_x6);
+	func_ver::fill_vector(chal_y6);
 
 	round_7a();
 	round_7b();
@@ -551,64 +439,17 @@ string Prover_toom::round_7(string in_name)
 	}
 	ost << "\n";
 
-	return name;
-}
-
-string Prover_toom::round_7_red(string in_name)
-{
-	long i, l;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-	//reads the values out of the file
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	//reads the vector t_1
-	l = 2 * m;
-	for (i = 0; i < l; i++)
+	for (i = 0; i < chal_x6->size(); i++)
 	{
-		ist >> chal_x6->at(i);
-	}
-	//reads the vector t
-	for (i = 0; i < n; i++)
-	{
-		ist >> chal_y6->at(i);
-	}
-
-	round_7a();
-	round_7b();
-	round_7c_red();
-
-	//Set name of the output file and open stream
-	name = "round_7 ";
-	name = name + ctime(&rawtime);
-
-	ofstream ost(name.c_str());
-	for (i = 0; i <= l; i++)
-	{
-		ost << c_Dl->at(i) << "\n";
+		ost << chal_x6->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << c_D0 << "\n";
-	ost << c_Dm << "\n";
-	ost << c_d << "\n";
-	ost << c_Delta << "\n";
-	ost << c_d_h << "\n";
+	for (i = 0; i < chal_y6->size(); i++)
+	{
+		ost << chal_y6->at(i) << "\n";
+	}
+	ost << endl;
 
-	ost << a_c_bar << "\n";
-	ost << r_ac_bar << "\n";
-	for (i = 0; i < 8; i++)
-	{
-		ost << E->at(i) << "\n";
-	}
-	ost << "\n";
-	ost << c_B0 << "\n";
-	for (i = 0; i < 8; i++)
-	{
-		ost << c_a->at(i) << "\n";
-	}
-	ost << "\n";
 	return name;
 }
 
@@ -660,7 +501,7 @@ void Prover_toom::round_9c()
 	func_pro::calculate_rho_a_bar(rho_a, chal_x8, rho_bar);
 }
 
-string Prover_toom::round_9(string in_name)
+string Prover_toom::round_9()
 {
 	long i;
 	long l = chal_x8->size();
@@ -669,7 +510,7 @@ string Prover_toom::round_9(string in_name)
 	time_t rawtime;
 	time(&rawtime);
 
-	//reads the values out of the file
+	/* //reads the values out of the file
 	ifstream ist(in_name.c_str());
 	if (!ist)
 		cout << "Can't open " << in_name;
@@ -677,7 +518,11 @@ string Prover_toom::round_9(string in_name)
 	for (i = 0; i < l; i++)
 	{
 		ist >> chal_x8->at(i);
-	}
+	} */
+
+	//随机挑战
+	func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega);
+	// l = chal_x8->size();
 
 	round_9a();
 	round_9b();
@@ -739,7 +584,39 @@ string Prover_toom::round_9(string in_name)
 	ost << r_a_bar;
 	ost << "\n";
 
-	ost << rho_bar;
+	ost << rho_bar<< "\n";
+	ost << "\n";
+
+	ost << chal_x8->size() << "\n";
+	ost << "\n";
+	for (i = 0; i < chal_x8->size(); i++)
+	{
+		ost << chal_x8->at(i) << "\n";
+	} 
+	ost << "\n";
+
+	ost << basis_chal_x8->size() << "\n";
+	ost << basis_chal_x8->at(0)->size() << "\n";
+	ost << "\n";
+	for (i = 0; i < basis_chal_x8->size(); i++)
+	{
+		for (int j = 0; j < basis_chal_x8->at(0)->size(); j++)
+		{
+			ost << basis_chal_x8->at(i)->at(j) << " ";
+		} 
+		ost << "\n";
+	} 
+	ost << "\n";
+
+	ost << mul_chal_x8->size() << "\n";
+	ost << "\n";
+	for (i = 0; i < mul_chal_x8->size(); i++)
+	{
+		ost << mul_chal_x8->at(i) << "\n";
+	} 
+	ost << "\n";
+
+	ost << omega;;
 	ost << "\n";
 
 	return name;
