@@ -351,10 +351,28 @@ int func_ver::check_E(vector<vector<Cipher_elg>* >* C, vector<Cipher_elg>* E, ve
 int func_ver::check_Dh_op(vector<Mod_p>* c_Dh, vector<ZZ>* chal, vector<ZZ>* D_h_bar, ZZ r_Dh_bar, long win_LL){
 	Mod_p t_Dh, co_Dh;
 
+	/* cout<<"c_Dh"<<endl;
+	for(int i=0;i<c_Dh->size();i++)
+		cout<< c_Dh->at(i) << " ";
+	cout<<endl;
+
+	cout<<"\nchal"<<endl;
+	for(int i=0;i<chal->size();i++)
+		cout<<chal->at(i)<<" ";
+	cout<<endl;
+
+	cout<<"\nD_h_bar"<<endl;
+	for(int i=0;i<D_h_bar->size();i++)
+		cout<<D_h_bar->at(i)<<" ";
+	cout<<endl;
+
+	cout<<"\nr_Dh_bar\n"<<r_Dh_bar<<endl;
+	cout<<"\nwin_LL\n"<<r_Dh_bar<<endl; */
+
 	multi_expo::multi_expo_LL(t_Dh,c_Dh, chal, win_LL);
 	co_Dh = Ped.commit_opt(D_h_bar,r_Dh_bar);
 
-	//cout<<"D_h "<<t_Dh<<" "<<co_Dh<<endl;
+	// cout<<"\nD_h   "<<t_Dh<<"\nco_Dh "<<co_Dh<<endl;
 	if (t_Dh == co_Dh){
 		return 1;
 	}
@@ -653,6 +671,19 @@ void func_ver::fill_vector(vector<ZZ>* t){
 	}
 }
 
+void func_ver::fill_vector(vector<ZZ>* t,ZZ rand){
+	long i,l;
+	ZZ temp;
+	ZZ ord = H.get_ord();
+
+	l= t->size();
+	temp = rand;
+	t->at(0)=temp;
+	for(i=1; i<l; i++){
+		MulMod(t->at(i),t->at(i-1),temp, ord);
+	}
+}
+
 
 void func_ver::fill_x8(vector<ZZ>* chal_x8, vector<vector<long>* >* basis_chal_x8, vector<ZZ>* mul_chal_x8, long omega){
 	long i, l;
@@ -677,3 +708,25 @@ void func_ver::fill_x8(vector<ZZ>* chal_x8, vector<vector<long>* >* basis_chal_x
 	}
 }
 
+void func_ver::fill_x8(vector<ZZ>* chal_x8, vector<vector<long>* >* basis_chal_x8, vector<ZZ>* mul_chal_x8, long omega,ZZ rand){
+	long i, l;
+	ZZ chal;
+	ZZ ord = H.get_ord();
+	long num_b= NumBits(ord);
+
+	l= chal_x8->size();
+	chal = rand;
+
+	chal_x8->at(0)= chal;
+	basis_chal_x8->at(0) = multi_expo::to_basis(to_ZZ(1),num_b, omega);
+	basis_chal_x8->at(1) = multi_expo::to_basis(chal_x8->at(0),num_b, omega);
+
+	mul_chal_x8->at(0) =1;
+	mul_chal_x8->at(1) =chal_x8->at(0);
+
+	for (i = 1; i<l; i++){
+		 MulMod(chal_x8->at(i),chal, chal_x8->at(i-1), ord);
+		 basis_chal_x8->at(i+1) = multi_expo::to_basis(chal_x8->at(i),num_b, omega);
+		 mul_chal_x8->at(i+1) = chal_x8->at(i);
+	}
+}

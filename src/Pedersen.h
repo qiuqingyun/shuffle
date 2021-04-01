@@ -30,6 +30,7 @@ public:
 	//constructors and destructor
 	Pedersen();
 	Pedersen(long n, G_q H);
+	Pedersen(long n, G_q H,vector<Mod_p> gen_in);
 	Pedersen(Mod_p gen, long o, long mod, long n);
 	Pedersen(Mod_p gen, long o, ZZ mod, long n);
 	Pedersen(Mod_p gen, ZZ o, ZZ mod, long n);

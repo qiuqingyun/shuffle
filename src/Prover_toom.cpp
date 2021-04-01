@@ -18,6 +18,7 @@
 #include <fstream>
 #include <time.h>
 #include "func_ver.h"
+#include <sstream>
 
 #include <NTL/ZZ.h>
 NTL_CLIENT
@@ -172,13 +173,14 @@ string Prover_toom::round_1()
 	time_t rawtime;
 	time(&rawtime);
 
-	name = "round_1 ";
-	name = name + ctime(&rawtime);
+	name = "prove_1.pro";
+	// name = name + to_string(time(&rawtime));
+	// name+=".pro";
 	//calculates commitments to rows of A
 	//对向量pi的每一行进行承诺
 	Functions::commit_op(A, r_A, c_A);
 
-	ofstream ost(name.c_str());
+	ofstream ost(name.c_str(),ios::out);
 	for (i = 0; i < m; i++)
 	{
 		ost << c_A->at(i) << "\n";
@@ -188,7 +190,7 @@ string Prover_toom::round_1()
 }
 
 //round_3, permuted the exponents in s,  picks random elements and commits to values
-string Prover_toom::round_3()
+string Prover_toom::round_3(string fileName)
 {
 	long i;
 	ZZ x2;
@@ -206,8 +208,32 @@ string Prover_toom::round_3()
 	
 	// ist >> x2;//round_2中Verifier生成的挑战
 
-	// 随机挑战x
-	x2 = RandomBnd(ord);
+	// 用hash生成随机挑战x
+	string container="\0",in_temp;
+	ifstream ist(fileName.c_str());
+	if (!ist)
+		cout << "Can't open " << fileName;
+	while (ist >> in_temp)
+	{//接收round_1中Prover的承诺
+		container+=in_temp;
+	}
+	stringstream pk_ss;
+	pk_ss<<El.get_pk().get_val();
+	container+=pk_ss.str();
+	ist.close();
+
+	// cout<<"round_1: "<<container<<endl;
+	//hash
+	string hashStr=sha.hash(container);
+	ZZ hashValueZZ;
+	conv(hashValueZZ,hashStr.c_str());
+	Mod_p hashValueModP=Mod_p(hashValueZZ,H.get_mod());
+	while(hashValueModP.get_val()>ord)
+		hashValueModP.set_val(hashValueModP.get_val()-ord);
+	// x2 = RandomBnd(ord);
+	// cout<<"Rand: "<<x2<<endl;
+	// cout<<"ModP: "<<hashValueModP<<endl;
+	x2=hashValueModP.get_val();
 
 	//生成内容为x2, x2^2, ... , x2^N的顺序矩阵chal_x2
 	func_pro::set_x2(chal_x2, x2, m, n);
@@ -218,11 +244,11 @@ string Prover_toom::round_3()
 	//对B的每一行生成随机数和承诺
 	Functions::commit_op(B, r_B, c_B);
 
-	name = "round_3 ";
-	name = name + ctime(&rawtime);
-
+	name = "prove_2.pro";
+	// name = name + to_string(time(&rawtime));
+	// name+=".pro";
 	//write data in the file name
-	ofstream ost(name.c_str());
+	ofstream ost(name.c_str(),ios::out);
 	for (i = 0; i < m; i++)
 	{
 		ost << c_B->at(i) << "\n";
@@ -277,7 +303,7 @@ void Prover_toom::round_5b()
 	calculate_Cc(C, basis_B);
 }
 
-string Prover_toom::round_5()
+string Prover_toom::round_5(string fileName)
 {
 	long i;
 	string name;
@@ -293,16 +319,51 @@ string Prover_toom::round_5()
 	// ist >> chal_y4;//round_4中Verifier生成的挑战y
 
 	// 随机挑战y,z
-	chal_z4 = RandomBnd(ord);
-	chal_y4 = RandomBnd(ord);
+	string container1="\0",container2;
+	ifstream ist(fileName.c_str());
+	if (!ist)
+		cout << "Can't open " << fileName;
+	while (!ist.eof())
+	{//接收round_1中Prover的承诺
+		ist >> container2;
+		if(!ist.eof())
+			container1+=container2;
+	}
+	// cout<<"round_2: "<<container1<<endl;
+	// cout<<"round_3: "<<container2<<endl;
+	stringstream pk_ss;
+	pk_ss<<El.get_pk().get_val();
+	container1+=pk_ss.str();
+	container2+=pk_ss.str();
+	ist.close();
+
+	//hash
+	string hashStr1=sha.hash(container1);
+	ZZ hashValueZZ1;
+	conv(hashValueZZ1,hashStr1.c_str());
+	Mod_p hashValueModP1=Mod_p(hashValueZZ1,H.get_mod());
+	while(hashValueModP1.get_val()>ord)
+		hashValueModP1.set_val(hashValueModP1.get_val()-ord);
+
+	string hashStr2=sha.hash(container2);
+	ZZ hashValueZZ2;
+	conv(hashValueZZ2,hashStr2.c_str());
+	Mod_p hashValueModP2=Mod_p(hashValueZZ2,H.get_mod());
+	while(hashValueModP2.get_val()>ord)
+		hashValueModP2.set_val(hashValueModP2.get_val()-ord);
+
+	// chal_z4 = RandomBnd(ord);
+	// chal_y4 = RandomBnd(ord);
+	chal_z4=hashValueModP1.get_val();
+	chal_y4=hashValueModP2.get_val();
 
 	round_5a();//构建矩阵D，并对向量chal_z和D_h做承诺
 	round_5b();
 	//Set name of the output file and open stream
-	name = "round_5 ";
-	name = name + ctime(&rawtime);
-
-	ofstream ost(name.c_str());
+	name = "prove_3.pro";
+	// name = name + to_string(time(&rawtime));
+	// name+=".pro";
+	ofstream ost(name.c_str(),ios::out);
 	//writes the commitments in the file
 	ost << c_z << "\n\n";
 	for (i = 0; i < m; i++)
@@ -321,8 +382,8 @@ string Prover_toom::round_5()
 		ost << c_a_c->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << chal_z4 << "\n";
-	ost << chal_y4 << endl; 
+	ost << chal_y4 << "\n\n";
+	ost << chal_z4 << endl; 
 	ost.close();
 	return name;
 }
@@ -378,13 +439,14 @@ void Prover_toom::round_7c()
 	Functions::delete_vector(C_small);
 }
 
-string Prover_toom::round_7()
+string Prover_toom::round_7(string fileName)
 {
 	long i, l;
 	string name;
 	time_t rawtime;
 	time(&rawtime);
 	l = 2 * m;
+	ZZ ord = H.get_ord();
 	//reads the values out of the file
 	/* ifstream ist(in_name.c_str());
 	if (!ist)
@@ -401,38 +463,77 @@ string Prover_toom::round_7()
 		ist >> chal_y6->at(i);
 	} */
 
+	// 随机挑战y,z
+	string container1="\0",container2;
+	ifstream ist(fileName.c_str());
+	if (!ist)
+		cout << "Can't open " << fileName;
+	while (!ist.eof())
+	{//接收round_1中Prover的承诺
+		ist >> container2;
+		if(!ist.eof())
+			container1+=container2;
+	}
+	// cout<<"round_2: "<<container1<<endl;
+	// cout<<"round_3: "<<container2<<endl;
+	stringstream pk_ss;
+	pk_ss<<El.get_pk().get_val();
+	container1+=pk_ss.str();
+	container2+=pk_ss.str();
+	ist.close();
+
+	//hash
+	string hashStr1=sha.hash(container1);
+	ZZ hashValueZZ1;
+	conv(hashValueZZ1,hashStr1.c_str());
+	Mod_p hashValueModP1=Mod_p(hashValueZZ1,H.get_mod());
+	while(hashValueModP1.get_val()>ord)
+		hashValueModP1.set_val(hashValueModP1.get_val()-ord);
+
+	string hashStr2=sha.hash(container2);
+	ZZ hashValueZZ2;
+	conv(hashValueZZ2,hashStr2.c_str());
+	Mod_p hashValueModP2=Mod_p(hashValueZZ2,H.get_mod());
+	while(hashValueModP2.get_val()>ord)
+		hashValueModP2.set_val(hashValueModP2.get_val()-ord);
+
+	// chal_z4 = RandomBnd(ord);
+	// chal_y4 = RandomBnd(ord);
+	ZZ chal_x6_temp=hashValueModP1.get_val();
+	ZZ chal_y6_temp=hashValueModP2.get_val();
+
 	// 随机挑战
 	//sets the vector t to the values temp, temp^2,...
-	func_ver::fill_vector(chal_x6);
-	func_ver::fill_vector(chal_y6);
+	func_ver::fill_vector(chal_x6,chal_x6_temp);
+	func_ver::fill_vector(chal_y6,chal_y6_temp);
 
 	round_7a();
 	round_7b();
 	round_7c();
 
 	//Set name of the output file and open stream
-	name = "round_7 ";
-	name = name + ctime(&rawtime);
-
-	ofstream ost(name.c_str());
+	name = "prove_4.pro";
+	// name = name + to_string(time(&rawtime));
+	// name+=".pro";
+	ofstream ost(name.c_str(),ios::out);
 	for (i = 0; i <= l; i++)
-	{
+	{//2m+1
 		ost << c_Dl->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << c_D0 << "\n";
-	ost << c_Dm << "\n";
-	ost << c_d << "\n";
-	ost << c_Delta << "\n";
-	ost << c_d_h << "\n";
-	ost << a_c_bar << "\n";
-	ost << r_ac_bar << "\n";
+	ost << c_D0 << "\n\n";
+	ost << c_Dm << "\n\n";
+	ost << c_d << "\n\n";
+	ost << c_Delta << "\n\n";
+	ost << c_d_h << "\n\n";
+	ost << a_c_bar << "\n\n";
+	ost << r_ac_bar << "\n\n";
 	for (i = 0; i < 8; i++)
 	{
 		ost << E->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << c_B0 << "\n";
+	ost << c_B0 << "\n\n";
 	for (i = 0; i < 8; i++)
 	{
 		ost << c_a->at(i) << "\n";
@@ -501,14 +602,22 @@ void Prover_toom::round_9c()
 	func_pro::calculate_rho_a_bar(rho_a, chal_x8, rho_bar);
 }
 
-string Prover_toom::round_9()
+int Prover_toom::round_9()
 {
+	time_t tstart =clock();
+
 	long i;
 	long l = chal_x8->size();
 	ZZ tem;
 	string name;
 	time_t rawtime;
 	time(&rawtime);
+	ZZ ord = H.get_ord();
+	string filename;
+	filename=this->round_1();
+	filename=this->round_3(filename);//生成一个挑战
+	filename=this->round_5(filename);//生成两个挑战
+	filename=this->round_7(filename);//生成两个挑战
 
 	/* //reads the values out of the file
 	ifstream ist(in_name.c_str());
@@ -520,8 +629,35 @@ string Prover_toom::round_9()
 		ist >> chal_x8->at(i);
 	} */
 
-	//随机挑战
-	func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega);
+	// 用hash生成随机挑战x
+	string container="\0",in_temp;
+	ifstream ist(filename.c_str());
+	if (!ist)
+		cout << "Can't open " << filename;
+	while (ist >> in_temp)
+	{//接收round_1中Prover的承诺
+		container+=in_temp;
+	}
+	stringstream pk_ss;
+	pk_ss<<El.get_pk().get_val();
+	container+=pk_ss.str();
+	ist.close();
+
+	// cout<<"round_1: "<<container<<endl;
+	//hash
+	string hashStr=sha.hash(container);
+	ZZ hashValueZZ;
+	conv(hashValueZZ,hashStr.c_str());
+	Mod_p hashValueModP=Mod_p(hashValueZZ,H.get_mod());
+	while(hashValueModP.get_val()>ord)
+		hashValueModP.set_val(hashValueModP.get_val()-ord);
+	// x2 = RandomBnd(ord);
+	// cout<<"Rand: "<<x2<<endl;
+	// cout<<"ModP: "<<hashValueModP<<endl;
+	ZZ chal_x8_temp=hashValueModP.get_val();
+
+	//一个随机挑战
+	func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega,chal_x8_temp);
 	// l = chal_x8->size();
 
 	round_9a();
@@ -529,10 +665,11 @@ string Prover_toom::round_9()
 	round_9c();
 
 	//Set name of the output file and open stream
-	name = "round_9 ";
-	name = name + ctime(&rawtime);
+	name = "prove_5.pro";
+	// name = name + to_string(time(&rawtime));
+	// name+=".pro";
 
-	ofstream ost(name.c_str());
+	ofstream ost(name.c_str(),ios::out);
 
 	for (i = 0; i < n; i++)
 	{
@@ -540,64 +677,58 @@ string Prover_toom::round_9()
 	}
 	ost << "\n";
 
-	ost << r_Dh_bar;
-	ost << "\n";
+	ost << r_Dh_bar<< "\n\n";
 
 	for (i = 0; i < n; i++)
 	{
 		ost << d_bar->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << r_d_bar << "\n";
+	ost << r_d_bar << "\n\n";
 	for (i = 0; i < n; i++)
 	{
 		ost << Delta_bar->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << r_Delta_bar << "\n";
+	ost << r_Delta_bar << "\n\n";
 
 	for (i = 0; i < n; i++)
 	{
 		ost << A_bar->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << r_A_bar << "\n";
+	ost << r_A_bar << "\n\n";
 	for (i = 0; i < n; i++)
 	{
 		ost << D_s_bar->at(i) << "\n";
 	}
 	ost << "\n";
-	ost << r_Ds_bar << "\n";
-	ost << r_Dl_bar << "\n";
+	ost << r_Ds_bar << "\n\n";
+	ost << r_Dl_bar << "\n\n";
 	for (i = 0; i < n; i++)
 	{
 		ost << B_bar->at(i) << "\n";
 	}
 	ost << "\n";
 
-	ost << r_B_bar;
-	ost << "\n";
+	ost << r_B_bar<<"\n\n";
 
-	ost << a_bar;
-	ost << "\n";
+	ost << a_bar<<"\n\n";
 
-	ost << r_a_bar;
-	ost << "\n";
+	ost << r_a_bar<<"\n\n";
 
-	ost << rho_bar<< "\n";
-	ost << "\n";
+	ost << rho_bar<<"\n\n";
 
-	ost << chal_x8->size() << "\n";
-	ost << "\n";
+	ost << chal_x8->size() <<"\n\n";
 	for (i = 0; i < chal_x8->size(); i++)
 	{
 		ost << chal_x8->at(i) << "\n";
 	} 
 	ost << "\n";
 
-	ost << basis_chal_x8->size() << "\n";
-	ost << basis_chal_x8->at(0)->size() << "\n";
-	ost << "\n";
+	ost << basis_chal_x8->size() <<"\n\n";
+	ost << basis_chal_x8->at(0)->size() <<"\n\n";
+
 	for (i = 0; i < basis_chal_x8->size(); i++)
 	{
 		for (int j = 0; j < basis_chal_x8->at(0)->size(); j++)
@@ -608,18 +739,17 @@ string Prover_toom::round_9()
 	} 
 	ost << "\n";
 
-	ost << mul_chal_x8->size() << "\n";
-	ost << "\n";
+	ost << mul_chal_x8->size() <<"\n\n";
 	for (i = 0; i < mul_chal_x8->size(); i++)
 	{
 		ost << mul_chal_x8->at(i) << "\n";
 	} 
 	ost << "\n";
 
-	ost << omega;;
-	ost << "\n";
-
-	return name;
+	time_t tstop = clock();
+	double ttime= (tstop-tstart)/(double)CLOCKS_PER_SEC*1000;
+	cout<<"To generate the proof took "<< ttime <<" ms."<<endl;
+	return 0;
 }
 
 void Prover_toom::commit_ac()

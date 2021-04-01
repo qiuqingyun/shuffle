@@ -33,6 +33,7 @@ public:
 	static vector<vector<Cipher_elg>* >*  createCipher(vector<long> num);
 	static void createCipher(vector<vector<Cipher_elg>* >* e, vector<long> num);
 	static void  inputCipher(vector<vector<Cipher_elg>* >* C, vector<long> num);
+	static void readCipher(vector<vector<Cipher_elg> *> *C,ifstream &ist, int m,int n);
 	static void decryptCipher(vector<vector<Cipher_elg>* >* C, vector<long> num,int flag);
 	//generates a matrix of random elements
 	static vector<vector<ZZ>* >* randomEl(vector<long> num);
@@ -47,6 +48,7 @@ public:
 
 	static long tolong(string s);
 	static string tostring(long s);
+	static string tostring(ZZ n);
 
 	//find order and modular value such that p = 2*a*q+1, p1=2*b*q+ 1 and it exists a 2m roof of unity
 	static void find_stat_group();

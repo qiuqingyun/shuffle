@@ -33,6 +33,8 @@ Pedersen::Pedersen(long n, G_q H){
 	int count=0;
 	gen = new vector<Mod_p>(n+1);
 	SetSeed(to_ZZ(time(0)));
+	ofstream ost;
+	ost.open("Pedersen.txt",ios::out);
 /*	string name = "example.txt";
 	ofstream ost;
 	ost.open(name.c_str(),ios::app);
@@ -51,6 +53,22 @@ Pedersen::Pedersen(long n, G_q H){
 				b = false;
 			}
 		}
+		ost<<(*gen).at(i)<<endl;
+	}
+//	ost<<endl;
+}
+
+Pedersen::Pedersen(long n, G_q H,vector<Mod_p> gen_in){
+	long i;
+	bool b;
+	ZZ ran;
+	Mod_p temp;
+	G = H;
+	int count=0;
+	this->gen = new vector<Mod_p>(n+1);
+	for (i =0; i <=n; i++)
+	{//生成n+1个G的生成元(g^r)作为公钥，存放在gen中，第一个给随机数，后面的n个给要进行承诺的数
+		this->gen->at(i)=gen_in.at(i);
 	}
 //	ost<<endl;
 }
@@ -580,6 +598,14 @@ Mod_p Pedersen::commit_opt(const vector<ZZ>*  t, ZZ ran){
 			temp = temp_1.get_val();
 		} else {*/
 			multi_expo::expo_mult(temp, t, ran, omega_expo, gen);
+			/* cout<<"\ntemp\n"<<temp<<endl;
+			cout<<"\nt\n"<<endl;
+			for(int i=0;i<t->size();i++)
+				cout<<t->at(i)<<" ";
+			cout<<endl;
+			cout<<"\nran\n"<<ran<<endl;
+			cout<<"\nomega_expo\n"<<omega_expo<<endl;
+			cout<<"\ngen\n"<<gen<<endl; */
 		//}
 	}
 

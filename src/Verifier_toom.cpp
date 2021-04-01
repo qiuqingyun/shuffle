@@ -16,6 +16,7 @@
 #include "multi_expo.h"
 #include "func_ver.h"
 #include <fstream>
+#include <sstream>
 
 #include <time.h>
 #include <NTL/ZZ.h>
@@ -42,6 +43,7 @@ Verifier_toom::Verifier_toom(vector<long> num)
 	omega = num[3];	   //windowsize for multi-expo-technique
 	omega_sw = num[4]; //windowsize for multi-expo-technique sliding window and LL
 	omega_LL = num[7]; //windowsize for multi-expo-technique of LL
+	this->num = num;
 
 	c_A = new vector<Mod_p>(m + 1);					 //allocate the storage for the commitments of Y
 	c_B = new vector<Mod_p>(m);						 //allocate the storage for the commitments of T
@@ -114,17 +116,23 @@ string Verifier_toom::round_2(string in_name)
 	if (!ist)
 		cout << "Can't open " << in_name;
 	for (i = 0; i < m; i++)
-	{//接收round_1中Prover的承诺
+	{ //接收round_1中Prover的承诺
 		ist >> c_A->at(i);
 	}
+	ist.close();
 
-	//生成随机挑战
-	/* chal_x2 = RandomBnd(ord);
-	name = "round_2 ";
-	name = name + ctime(&rawtime);
-	ofstream ost(name.c_str());
-	ost << chal_x2; */
-
+	string container = "\0", in_temp;
+	ist.open(in_name.c_str(), ios::in);
+	while (ist >> in_temp)
+	{ //接收round_1中Prover的承诺
+		container += in_temp;
+	}
+	stringstream pk_ss;
+	pk_ss << El.get_pk().get_val();
+	container += pk_ss.str();
+	ist.close();
+	hashStr[0] = sha.hash(container);
+	
 	return name;
 }
 
@@ -140,22 +148,29 @@ string Verifier_toom::round_4(string in_name)
 	if (!ist)
 		cout << "Can't open " << in_name;
 	for (i = 0; i < m; i++)
-	{//接收round_3中Prover的承诺
+	{ //接收round_3中Prover的承诺
 		ist >> c_B->at(i);
 	}
 
-	ist>>chal_x2;
+	ist >> chal_x2;
+	ist.close();
 
-	//Set name of the output file and open stream
-	/* name = "round_4 ";
-	name = name + ctime(&rawtime);
-
-	chal_z4 = RandomBnd(ord);
-	chal_y4 = RandomBnd(ord);
-
-	ofstream ost(name.c_str());
-	ost << chal_z4 << "\n";
-	ost << chal_y4; */
+	string container1 = "\0", container2;
+	ist.open(in_name.c_str(), ios::in);
+	while (!ist.eof())
+	{ //接收round_1中Prover的承诺
+		ist >> container2;
+		if (!ist.eof())
+			container1 += container2;
+	}
+	stringstream pk_ss;
+	pk_ss << El.get_pk().get_val();
+	container1 += pk_ss.str();
+	container2 += pk_ss.str();
+	ist.close();
+	hashStr[1] = sha.hash(container1);
+	hashStr[2] = sha.hash(container2);
+	
 	return name;
 }
 
@@ -178,45 +193,40 @@ string Verifier_toom::round_6(string in_name)
 	for (i = 0; i < m; i++)
 	{
 		ist >> c_Dh->at(i);
-		// cout<<c_Dh->at(i)<<" ";
+		// cout<<"c_Dh: " << c_Dh->at(i) << " ";
 	}
-	// cout<<endl;
+	// cout << endl;
 	for (i = 0; i < mu_h; i++)
 	{
 		ist >> C_c->at(i);
-		// cout<<C_c->at(i)<<" ";
+		// cout << C_c->at(i) << " ";
 	}
-	// cout<<endl;
+	// cout << endl;
 	for (i = 0; i < mu_h; i++)
 	{
 		ist >> c_a_c->at(i);
-		// cout<<c_a_c->at(i)<<" ";
+		// cout << c_a_c->at(i) << " ";
 	}
-	ist>>chal_z4;
-	ist>>chal_y4;
-	// cout<<endl;
+	ist >> chal_y4;
+	ist >> chal_z4;
+	ist.close();
 
-	/* //sets the vector t to the values temp, temp^2,...
-	func_ver::fill_vector(chal_x6);
-
-	//sets the vector t to the values temp, temp^2,...
-	func_ver::fill_vector(chal_y6);
-
-	name = "round_6 ";
-	name = name + ctime(&rawtime);
-	l = 2 * m;
-	ofstream ost(name.c_str());
-	for (i = 0; i < l; i++)
-	{
-		ost << chal_x6->at(i) << "\n";
+	string container1 = "\0", container2;
+	ist.open(in_name.c_str(), ios::in);
+	while (!ist.eof())
+	{ //接收round_1中Prover的承诺
+		ist >> container2;
+		if (!ist.eof())
+			container1 += container2;
 	}
-	ost << "\n";
-	for (i = 0; i < n; i++)
-	{
-		ost << chal_y6->at(i) << "\n";
-	}
-	ost << "\n"; */
-
+	stringstream pk_ss;
+	pk_ss << El.get_pk().get_val();
+	container1 += pk_ss.str();
+	container2 += pk_ss.str();
+	ist.close();
+	hashStr[3] = sha.hash(container1);
+	hashStr[4] = sha.hash(container2);
+	
 	return name;
 }
 
@@ -233,144 +243,239 @@ string Verifier_toom::round_8(string in_name)
 		cout << "Can't open " << in_name;
 
 	for (i = 0; i <= 2 * m; i++)
-	{//33
+	{ //33
 		ist >> c_Dl->at(i);
+		// cout << c_Dl->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> c_D0;
+	// cout << c_D0 << endl;
 	ist >> c_Dm;
+	// cout << c_Dm << endl;
 	ist >> c_d;
+	// cout << c_d << endl;
 	ist >> c_Delta;
+	// cout << c_Delta << endl;
 	ist >> c_dh;
+	// cout << c_dh << endl;
 	ist >> a_c_bar;
+	// cout << a_c_bar << endl;
 	ist >> r_ac_bar;
+	// cout << r_ac_bar << endl;
 	for (i = 0; i < 8; i++)
 	{
 		ist >> E->at(i);
+		// cout << E->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> c_B0;
+	// cout << c_B0 << endl;
 	for (i = 0; i < 8; i++)
 	{
 		ist >> c_a->at(i);
+		// cout << c_a->at(i) << " ";
 	}
-
+	// cout << endl;
 	l = 2 * m;
 	for (i = 0; i < l; i++)
 	{
 		ist >> chal_x6->at(i);
+		// cout << chal_x6->at(i) << " ";
 	}
+	// cout << endl;
 
 	for (i = 0; i < n; i++)
 	{
 		ist >> chal_y6->at(i);
+		// cout << chal_y6->at(i) << " ";
 	}
-
-	/*func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega);
-	 l = chal_x8->size();
-
-	name = "round_8 ";
-	name = name + ctime(&rawtime);
-	ofstream ost(name.c_str());
-	for (i = 0; i < l; i++)
+	// cout << endl;
+	ist.close();
+	string container = "\0", in_temp;
+	ist.open(in_name.c_str(), ios::in);
+	while (ist >> in_temp)
 	{
-		ost << chal_x8->at(i) << "\n";
-	} */
+		container += in_temp;
+	}
+	stringstream pk_ss;
+	pk_ss << El.get_pk().get_val();
+	container += pk_ss.str();
+	ist.close();
+	hashStr[5] = sha.hash(container);
+	
 	return name;
 }
 
-int Verifier_toom::round_10(string files[5], vector<vector<Cipher_elg> *> *enc, vector<vector<Cipher_elg> *> *C)
+int Verifier_toom::round_10(vector<vector<Cipher_elg> *> *cc, vector<vector<Cipher_elg> *> *Cc)
 {
+	time_t tstart = clock();
 	int b;
 	long i;
+	ZZ ord = H.get_ord();
 	//reads the values out of the file name
-	string in_name=files[4];
+	this->round_2("prove_1.pro");
+	this->round_4("prove_2.pro");
+	this->round_6("prove_3.pro");
+	this->round_8("prove_4.pro");
+	string in_name = "prove_5.pro";
 	ifstream ist(in_name.c_str());
 	if (!ist)
 		cout << "Can't open " << in_name;
 	for (i = 0; i < n; i++)
 	{
 		ist >> D_h_bar->at(i);
+		// cout<<"D_h_bar: " << D_h_bar->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> r_Dh_bar;
+	// cout<<"r_Dh_bar: " << r_Dh_bar << "\n\n";
 
 	for (i = 0; i < n; i++)
 	{
 		ist >> d_bar->at(i);
+		// cout << d_bar->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> r_d_bar;
+	// cout << r_d_bar << "\n\n";
 	for (i = 0; i < n; i++)
 	{
 		ist >> Delta_bar->at(i);
+		// cout << Delta_bar->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> r_Delta_bar;
+	// cout << r_Delta_bar << "\n\n";
 
 	for (i = 0; i < n; i++)
 	{
 		ist >> A_bar->at(i);
+		// cout << A_bar->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> r_A_bar;
+	// cout << r_A_bar << "\n\n";
 	for (i = 0; i < n; i++)
 	{
 		ist >> Ds_bar->at(i);
+		// cout << Ds_bar->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> r_Ds_bar;
+	// cout << r_Ds_bar << "\n\n";
 	ist >> r_Dl_bar;
+	// cout << r_Dl_bar << "\n\n";
 
 	for (i = 0; i < n; i++)
 	{
 		ist >> B_bar->at(i);
+		// cout << B_bar->at(i) << " ";
 	}
+	// cout << endl;
 	ist >> r_B_bar;
+	// cout << r_B_bar << "\n\n";
 	ist >> a_bar;
+	// cout << a_bar << "\n\n";
 	ist >> r_a_bar;
+	// cout << r_a_bar << "\n\n";
 	ist >> rho_bar;
+	// cout << rho_bar << "\n\n";
 
 	int chal_x8_size;
 	ist >> chal_x8_size;
+	// cout << chal_x8_size << "\n\n";
 	for (i = 0; i < chal_x8_size; i++)
 	{
 		ist >> chal_x8->at(i);
-	} 
+		// cout << chal_x8->at(i) << " ";
+	}
+	// cout << endl;
 
-	int basis_chal_x8_size,basis_chal_x8_s_size;
+	int basis_chal_x8_size, basis_chal_x8_s_size;
 	ist >> basis_chal_x8_size;
+	// cout << basis_chal_x8_size << "\n\n";
 	ist >> basis_chal_x8_s_size;
+	// cout << basis_chal_x8_s_size << "\n\n";
 	for (i = 0; i < basis_chal_x8_size; i++)
-	{	
+	{
 		vector<long> *x8;
-		x8=new vector<long>(basis_chal_x8_s_size);
+		x8 = new vector<long>(basis_chal_x8_s_size);
 		for (int j = 0; j < basis_chal_x8_s_size; j++)
 		{
 			long x8_temp;
 			ist >> x8_temp;
-			x8->at(j)=x8_temp;
+			x8->at(j) = x8_temp;
+			// cout << x8->at(j) << " ";
 			// cout << x8_temp << " "<<flush;
-		} 
-			basis_chal_x8->at(i)=x8;
-			// cout << "\n";
-	} 
-
-	/* cout << "\n";
-	for (i = 0; i < basis_chal_x8->size(); i++)
-	{
-		for (int j = 0; j < basis_chal_x8->at(0)->size(); j++)
-		{
-			cout << basis_chal_x8->at(i)->at(j) << " "<<flush;
-		} 
-		cout << "\n";
-	} 
-	cout << "\n"; */
+		}
+		// cout << endl;
+		basis_chal_x8->at(i) = x8;
+		// cout << "\n";
+	}
 
 	int mul_chal_x8_size;
 	ist >> mul_chal_x8_size;
+	// cout << mul_chal_x8_size << "\n\n";
 
 	for (i = 0; i < mul_chal_x8_size; i++)
 	{
 		ist >> mul_chal_x8->at(i);
-	} 
+		// cout<<"mul_chal_x8: " << mul_chal_x8->at(i) << " ";
+	}
+	// cout << endl;
+	ist.close();
+	
+	vector<vector<Cipher_elg> *> *c = new vector<vector<Cipher_elg> *>(m);
+	Functions::inputCipher(c, num);
 
-	ist >> omega;
+	vector<vector<Cipher_elg> *> *C = new vector<vector<Cipher_elg> *>(m);
+	in_name = "cipher_out.txt";
+	ist.open(in_name.c_str(), ios::in);
+	if (!ist)
+		cout << "Can't open " << in_name;
 
+	vector<Cipher_elg> *r = 0;
+	string pattern2 = ",";
+	string line;
+	for (i = 0; i < m; i++)
+	{
+		r = new vector<Cipher_elg>(n);
+		for (int j = 0; j < n; j++)
+		{
+			getline(ist, line);
+			char *strc = new char[strlen(line.c_str()) + 1];
+			strcpy(strc, line.c_str()); //string转换成C-string
+			char *str_u_t = strtok(strc, pattern2.c_str());
+			char *str_v = strtok(NULL, pattern2.c_str());
+			char str_u[strlen(str_u_t)] = {'\0'};
+			memcpy(str_u, str_u_t + 1, strlen(str_u_t));
+			str_u[strlen(str_u_t) - 1] = '\0';
+			str_v[strlen(str_v) - 1] = '\0';
+			ZZ u, v;
+			conv(u, str_u);
+			conv(v, str_v);
+			Cipher_elg temp = Cipher_elg(u, v, H.get_mod());
+			r->at(j) = temp;
+		}
+		//	ost<<endl;
+		C->at(i) = r;
+	}
+	ist.close();
+
+	array<ZZ, 6> hashChk; //hash验证
+	for (int i = 0; i < 6; i++)
+	{
+		ZZ hashValueZZ;
+		conv(hashValueZZ, hashStr[i].c_str());
+		Mod_p hashValueModP = Mod_p(hashValueZZ, H.get_mod());
+		while (hashValueModP.get_val() > ord)
+			hashValueModP.set_val(hashValueModP.get_val() - ord);
+		hashChk[i] = hashValueModP.get_val();
+	}
+
+	int flag = 0;
 	//Check that the D_hi's are constructed correctly
+	// cout<<"omega_LL: "<<omega_LL<<endl;
 	b = func_ver::check_Dh_op(c_Dh, mul_chal_x8, D_h_bar, r_Dh_bar, omega_LL);
 	if (b == 1)
 	{
@@ -403,7 +508,7 @@ int Verifier_toom::round_10(string files[5], vector<vector<Cipher_elg> *> *enc, 
 								if (b == 1)
 								{
 									//Check that E_c->at(mu-1) contains c and D->at(4) = C
-									b = check_c(enc); //Both commitments shoud be com(0,0)
+									b = check_c(c); //Both commitments shoud be com(0,0)
 									if (b == 1 & c_a->at(4) == c_a_c->at(3))
 									{
 										//Check correctness of the chiphertexts
@@ -414,8 +519,12 @@ int Verifier_toom::round_10(string files[5], vector<vector<Cipher_elg> *> *enc, 
 											b = check_ac();
 											if (b == 1)
 											{
-												cout<<"Accept!"<<endl;
-												return 1;
+												//Check the the hash
+												b = check_hash(hashChk);
+												if (b == 0)
+												{
+													flag = 1;
+												}
 											}
 										}
 									}
@@ -427,8 +536,15 @@ int Verifier_toom::round_10(string files[5], vector<vector<Cipher_elg> *> *enc, 
 			}
 		}
 	}
-	cout<<"Error!"<<endl;
-	return -1;
+	time_t tstop = clock();
+	double ttime = (tstop - tstart) / (double)CLOCKS_PER_SEC * 1000;
+	cout << "To verify the proof took " << ttime << " ms." << endl;
+	cout << "Validation results: " << flush;
+	if (flag)
+		cout << "PASS" << endl;
+	else
+		cout << "FAIL" << endl;
+	return flag;
 }
 
 void Verifier_toom::calculate_c(Cipher_elg &c, vector<vector<Cipher_elg> *> *enc)
@@ -687,8 +803,8 @@ int Verifier_toom::check_E(vector<vector<Cipher_elg> *> *C)
 	delete chal_1_temp;
 	delete chal_2_temp;
 	Functions::delete_vector(C_small);
-		// cout<<"E"<<t_D<<endl;
-		// cout<<"E"<<c_D<<endl;
+	// cout<<"E"<<t_D<<endl;
+	// cout<<"E"<<c_D<<endl;
 	if (t_D == c_D)
 	{
 		return 1;
@@ -787,4 +903,15 @@ int Verifier_toom::check_ac()
 		return 1;
 	}
 	return 0;
+}
+
+int Verifier_toom::check_hash(array<ZZ, 6> hashChk)
+{
+	int a = (hashChk[0] == chal_x2) ? 0 : 1;
+	int b = (hashChk[1] == chal_z4) ? 0 : 1;
+	int c = (hashChk[2] == chal_y4) ? 0 : 1;
+	int d = (hashChk[3] == chal_x6->at(0)) ? 0 : 1;
+	int e = (hashChk[4] == chal_y6->at(0)) ? 0 : 1;
+	int f = (hashChk[5] == chal_x8->at(0)) ? 0 : 1;
+	return a+b+c+d+e+f;
 }

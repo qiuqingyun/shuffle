@@ -37,7 +37,8 @@ CFLAGS= \
         -I $(INC_DIR)
 CXXFLAGS=\
 		-g \
-        -I $(INC_DIR)
+        -I $(INC_DIR) \
+		-std=c++17
 
 LDFLAGS=
 
@@ -67,7 +68,8 @@ FILES = \
 	Prover\
 	Verifier_me\
 	Verifier_toom\
-	Verifier
+	Verifier\
+	sha256
 
 
 

@@ -7,6 +7,8 @@
         "ostream": "cpp",
         "*.tcc": "cpp",
         "streambuf": "cpp",
-        "iostream": "cpp"
-    }
+        "iostream": "cpp",
+        "typeinfo": "cpp"
+    },
+    "C_Cpp.default.cppStandard": "c++17"
 }
