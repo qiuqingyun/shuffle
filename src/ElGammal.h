@@ -1,13 +1,3 @@
-/*
- * ElGammal.h
- *
- *  Created on: 03.10.2010
- *      Author: stephaniebayer
- *
- *      An instance of the class represent the ElGammal encryption, it has information of the group used the secret and
- *      public key. The class also provides functions to encrypt and decrypt
- */
-
 #ifndef ELGAMMAL_H_
 #define ELGAMMAL_H_
 
@@ -28,9 +18,9 @@ public:
 	//Constructor & destructor
 	ElGammal();
 	ElGammal(long s, Mod_p p, G_q H);
-	ElGammal(ZZ s, Mod_p p,G_q H);
-	ElGammal(long s,G_q H);
-	ElGammal(ZZ s,G_q H);
+	ElGammal(ZZ s, Mod_p p, G_q H);
+	ElGammal(long s, G_q H);
+	ElGammal(ZZ s, G_q H);
 	ElGammal(Mod_p gen, long o, long mod, long s);
 	ElGammal(Mod_p gen, long o, ZZ mod, long s);
 	ElGammal(Mod_p gen, long o, ZZ mod, ZZ s);
@@ -62,7 +52,7 @@ public:
 	void set_group(G_q G);
 	void set_sk(ZZ s);
 	void set_sk(long s);
-	void set_key(ZZ s,ZZ p);
+	void set_key(ZZ s, ZZ p);
 
 	//encryption and decryption functions
 	Cipher_elg encrypt(Mod_p m);
@@ -78,7 +68,7 @@ public:
 
 	//decryption function
 	Mod_p decrypt(Cipher_elg c);
-	ZZ decrypt(Cipher_elg c,int flag);
+	ZZ decrypt(Cipher_elg c, int flag);
 
 	//Assigment operator
 	void operator =(const ElGammal& el);

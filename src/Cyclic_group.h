@@ -1,13 +1,3 @@
-/*
- * Cyclic_group.h
- *
- *  Created on: 08.09.2010
- *      Author: stephaniebayer
- *
- *      Class represent a cyclic group with order o and generator g
- *
- */
-
 #ifndef CYCLIC_GROUP_H_
 #define CYCLIC_GROUP_H_
 

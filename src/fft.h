@@ -1,10 +1,3 @@
-/*
- * fft.h
- *
- *  Created on: 13.12.2012
- *      Author: stephaniebayer
- */
-
 #ifndef FFT_H_
 #define FFT_H_
 
@@ -26,7 +19,7 @@ public:
 	static long to_long(vector<int>* bit_r);
 
 
-	static void bitreverse(long & z, long x, long d);
+	static void bitreverse(long& z, long x, long d);
 	static void brevorder(vector<ZZ>* ret, vector<ZZ>* v);
 
 	static void FFT(vector<ZZ>* fft, vector<ZZ>* v, long N, ZZ rootofunity, ZZ ord);
@@ -39,7 +32,7 @@ public:
 	static void fft_matrix(vector<vector<ZZ>*>*, vector<vector<ZZ>* >* v, ZZ omega, ZZ ord);
 	static void fft_matrix_inv(vector<vector<ZZ>*>*, vector<vector<ZZ>* >* v, ZZ omega, ZZ ord);
 	static void sum_t(vector<vector<ZZ>* >*, vector<vector<ZZ>* >* T, ZZ omega, ZZ ord);
-	static void calc_Pk (vector<vector<ZZ>*>*, vector<vector<Cipher_elg>* >* v, vector<vector<ZZ>* >* T, ZZ omega, ZZ ord, ZZ mod, int omega_sw);
+	static void calc_Pk(vector<vector<ZZ>*>*, vector<vector<Cipher_elg>* >* v, vector<vector<ZZ>* >* T, ZZ omega, ZZ ord, ZZ mod, int omega_sw);
 	static void  calc_m(vector<vector<ZZ>* >*, long m, ZZ omgea, ZZ ord);
 };
 

@@ -1,13 +1,3 @@
-/*
- * G_q.h
- *
- *  Created on: 30.09.2010
- *      Author: stephaniebayer
- *
- *      Class describing the group G_q subset of Z_p with prime order q.
- *
- */
-
 #ifndef G_q_H_
 #define G_q_H_
 
@@ -17,7 +7,7 @@
 NTL_CLIENT
 
 
-class G_q: public Cyclic_group {
+class G_q : public Cyclic_group {
 private:
 	Mod_p generator;  //generator of the group
 	ZZ order; //order of the group
@@ -26,18 +16,18 @@ public:
 	//Constructors and destructor
 	G_q();
 	G_q(Mod_p gen, long o, long mod);
-	G_q(Mod_p gen,long o, ZZ mod);
+	G_q(Mod_p gen, long o, ZZ mod);
 	G_q(Mod_p gen, ZZ o, ZZ mod);
 	G_q(ZZ gen_val, long o, long mod);
-	G_q(ZZ gen_val, long o , ZZ mod);
-	G_q(ZZ gen_val, ZZ o , ZZ mod);
+	G_q(ZZ gen_val, long o, ZZ mod);
+	G_q(ZZ gen_val, ZZ o, ZZ mod);
 	G_q(long gen_val, long o, long mod);
 	G_q(long gen_val, long o, ZZ mod);
 	G_q(long gen_val, ZZ o, ZZ mod);
 	G_q(Mod_p gen, long o);
 	G_q(Mod_p gen, ZZ o);
-	G_q(long o,ZZ mod);
-	G_q(ZZ o,ZZ mod);
+	G_q(long o, ZZ mod);
+	G_q(ZZ o, ZZ mod);
 	G_q(long o, long mod);
 	virtual ~G_q();
 

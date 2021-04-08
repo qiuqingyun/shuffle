@@ -1,13 +1,3 @@
-/*
- * G_mem.h
- *
- *  Created on: 08.09.2010
- *      Author: stephaniebayer
- *
- *      An instance of this group represent the value of a group member
- *
- */
-
 #ifndef G_MEM_H_
 #define G_MEM_H_
 

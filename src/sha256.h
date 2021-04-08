@@ -8,11 +8,11 @@ class SHA256 {
 
 public:
 	SHA256();
-	void update(const uint8_t * data, size_t length);
-	void update(const std::string &data);
-	uint8_t * digest();
+	void update(const uint8_t* data, size_t length);
+	void update(const std::string& data);
+	uint8_t* digest();
 
-	static std::string toString(const uint8_t * digest);
+	static std::string toString(const uint8_t* digest);
 	std::string hash(std::string m);
 
 private:
@@ -47,7 +47,7 @@ private:
 	static uint32_t sig1(uint32_t x);
 	void transform();
 	void pad();
-	void revert(uint8_t * hash);
+	void revert(uint8_t* hash);
 };
 
 #endif

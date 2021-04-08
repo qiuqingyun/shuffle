@@ -1,13 +1,3 @@
-/*
- * Pedersen.h
- *
- *  Created on: 04.10.2010
- *      Author: stephaniebayer
- *
- * The class contains the public information to commit to vectors or a single value and functions to do this.
- *
- */
-
 #ifndef PEDERSEN_H_
 #define PEDERSEN_H_
 #include<vector>
@@ -30,7 +20,7 @@ public:
 	//constructors and destructor
 	Pedersen();
 	Pedersen(long n, G_q H);
-	Pedersen(long n, G_q H,vector<Mod_p> gen_in);
+	Pedersen(long n, G_q H, vector<Mod_p> gen_in);
 	Pedersen(Mod_p gen, long o, long mod, long n);
 	Pedersen(Mod_p gen, long o, ZZ mod, long n);
 	Pedersen(Mod_p gen, ZZ o, ZZ mod, long n);
@@ -41,7 +31,7 @@ public:
 	Pedersen(ZZ gen_val, long o, ZZ mod, long n);
 	Pedersen(ZZ gen_val, ZZ o, ZZ mod, long n);
 	Pedersen(Mod_p gen, long o, long n);
-	Pedersen(Mod_p gen,  ZZ o, long n);
+	Pedersen(Mod_p gen, ZZ o, long n);
 	Pedersen(long o, long mod, long n);
 	Pedersen(long o, ZZ mod, long n);
 	Pedersen(ZZ o, ZZ mod, long n);
@@ -59,17 +49,17 @@ public:
 	//Different function to calculate the commitments
 	Mod_p commit(const vector<ZZ>* t, ZZ ran);
 	Mod_p commit(const vector<Mod_p>* t, ZZ ran);
-	Mod_p commit(const vector<Mod_p>*  t);
+	Mod_p commit(const vector<Mod_p>* t);
 	Mod_p commit(ZZ t, ZZ ran);
 	Mod_p commit(Mod_p t, ZZ ran);
-	Mod_p commit(Mod_p t,  long ran);
+	Mod_p commit(Mod_p t, long ran);
 	Mod_p commit(Mod_p t);
 
 
 	Mod_p commit_opt(const vector<ZZ>* t, ZZ ran);
 	Mod_p commit_sw(ZZ t, ZZ ran);
 	Mod_p commit_sw(Mod_p t, ZZ ran);
-	Mod_p commit_sw(Mod_p t,  long ran);
+	Mod_p commit_sw(Mod_p t, long ran);
 	Mod_p commit_sw(Mod_p t);
 
 	//Multi expo functions

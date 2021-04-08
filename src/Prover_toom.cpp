@@ -1,13 +1,9 @@
-/*
- * Prover_toom.cpp
- *
- *  Created on: 24.04.2011
- *      Author: stephaniebayer
- */
-
 #include "Prover_toom.h"
 
 #include <vector>
+#include <fstream>
+#include <ctime>
+#include <sstream>
 #include "Cipher_elg.h"
 #include "G_q.h"
 #include "Mod_p.h"
@@ -15,10 +11,7 @@
 #include "ElGammal.h"
 #include "multi_expo.h"
 #include "func_pro.h"
-#include <fstream>
-#include <time.h>
 #include "func_ver.h"
-#include <sstream>
 
 #include <NTL/ZZ.h>
 NTL_CLIENT
@@ -30,13 +23,17 @@ extern ElGammal El;
 extern long mu;
 extern long mu_h;
 extern long m_r;
+ZZ ord;
+array<string, 6> hashStr;
+stringstream pk_ss;
+
 
 Prover_toom::Prover_toom()
 {
 	// TODO Auto-generated constructor stub
 }
 
-Prover_toom::Prover_toom(vector<vector<Cipher_elg> *> *Cin, vector<vector<ZZ> *> *Rin, vector<vector<vector<long> *> *> *piin, vector<long> num, ZZ gen)
+Prover_toom::Prover_toom(vector<vector<Cipher_elg>*>* Cin, vector<vector<ZZ>*>* Rin, vector<vector<vector<long>*>*>* piin, vector<long> num, ZZ gen)
 {
 
 	// set the dimensions of the row and columns according to the user input
@@ -50,8 +47,8 @@ Prover_toom::Prover_toom(vector<vector<Cipher_elg> *> *Cin, vector<vector<ZZ> *>
 	omega_sw = num[4];	  //windowsize for multi-expo technique
 	omega_LL = num[7];	  //windowsize for multi-expo technique
 
-	//Creates the matrices Aï¼Œå†…å®¹ä¸ºpi
-	A = new vector<vector<ZZ> *>(m);
+	//Creates the matrices A£¬ÄÚÈİÎªpi
+	A = new vector<vector<ZZ>*>(m);
 	func_pro::set_A(A, pi, m, n);
 
 	//Allocate the storage needed for the vectors
@@ -59,29 +56,29 @@ Prover_toom::Prover_toom(vector<vector<Cipher_elg> *> *Cin, vector<vector<ZZ> *>
 	chal_y6 = new vector<ZZ>(n);		 //y6, y6^2, ... challenges form round 6
 	chal_x8 = new vector<ZZ>(2 * m + 1); //x8, x8^2, ... challenges from round 8
 
-	basis_chal_x8 = new vector<vector<long> *>(2 * m + 2); //basis of vector e for multi-expo technique
+	basis_chal_x8 = new vector<vector<long>*>(2 * m + 2); //basis of vector e for multi-expo technique
 	mul_chal_x8 = new vector<ZZ>(2 * m + 2);			   //shifted vector e, e(0) = 1, used for multi-expo
-	
+
 	//Allocate the storage needed for the vectors
 	c_A = new vector<Mod_p>(m + 1); //commitments to the rows in A
 	r_A = new vector<ZZ>(m + 1);	//random elements used for the commitments
 
-	D = new vector<vector<ZZ> *>(m + 1);   //vector containing in the first row random values and in all others y*A(ij) + B(ij)-z
-	D_h = new vector<vector<ZZ> *>(m);	   //Vector of the Hadamare products of the rows in D
-	D_s = new vector<vector<ZZ> *>(m + 1); //Shifted rows of D_h
+	D = new vector<vector<ZZ>*>(m + 1);   //vector containing in the first row random values and in all others y*A(ij) + B(ij)-z
+	D_h = new vector<vector<ZZ>*>(m);	   //Vector of the Hadamare products of the rows in D
+	D_s = new vector<vector<ZZ>*>(m + 1); //Shifted rows of D_h
 	d = new vector<ZZ>(n);				   //containing random elements to proof product of D_hm
 	Delta = new vector<ZZ>(n);			   //containing random elements to proof product of D_hm
 	d_h = new vector<ZZ>(n);			   // vector containing the last row of D-h
 
 	r_D_h = new vector<ZZ>(m);						 //random elements for commitments to D_h
 	c_D_h = new vector<Mod_p>(m + 2);				 //commitments to the rows in D_h
-	C_small = new vector<vector<Cipher_elg> *>(m_r); //matrix of reduced ciphertexts
+	C_small = new vector<vector<Cipher_elg>*>(m_r); //matrix of reduced ciphertexts
 
-	B = new vector<vector<ZZ> *>(m);				   //matrix of permuted exponents, exponents are x2^i, i=1, ..N
-	basis_B = new vector<vector<vector<long> *> *>(m); //basis for the multi-expo, containing the Bij
-	B_small = new vector<vector<ZZ> *>(m_r);		   //matrix of reduced exponents
+	B = new vector<vector<ZZ>*>(m);				   //matrix of permuted exponents, exponents are x2^i, i=1, ..N
+	basis_B = new vector<vector<vector<long>*>*>(m); //basis for the multi-expo, containing the Bij
+	B_small = new vector<vector<ZZ>*>(m_r);		   //matrix of reduced exponents
 	B_0 = new vector<ZZ>(n);						   //vector containing random exponents
-	basis_B0 = new vector<vector<long> *>(n);		   //basis for multi-expo, containing  the B0j
+	basis_B0 = new vector<vector<long>*>(n);		   //basis for multi-expo, containing  the B0j
 	r_B = new vector<ZZ>(m);						   //random elements used to commit to B
 	r_B_small = new vector<ZZ>(m_r);				   //random elements for commitments to B_small
 	c_B = new vector<Mod_p>(m);						   //vector of commitments to rows in T
@@ -166,115 +163,86 @@ Prover_toom::~Prover_toom()
 }
 
 //round_1 picks random elements and commits to the rows of A
-string Prover_toom::round_1()
+void Prover_toom::round_1()
 {
-	long i;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	name = "prove_1.pro";
-	// name = name + to_string(time(&rawtime));
-	// name+=".pro";
-	//calculates commitments to rows of A
-	//å¯¹å‘é‡piçš„æ¯ä¸€è¡Œè¿›è¡Œæ‰¿è¯º
+	//¶ÔÏòÁ¿piµÄÃ¿Ò»ĞĞ½øĞĞ³ĞÅµ
 	Functions::commit_op(A, r_A, c_A);
 
-	ofstream ost(name.c_str(),ios::out);
-	for (i = 0; i < m; i++)
+	ofstream ost("prove.pro", ios::out);
+	stringstream ss;
+	//1 c_A
+	for (int i = 0; i < m; i++)
 	{
-		ost << c_A->at(i) << "\n";
+		ost << c_A->at(i) << endl;
+		ss << c_A->at(i).get_val();
 	}
+	ord = H.get_ord();
+	pk_ss << El.get_pk().get_val();
+	hashStr[0] = ss.str() + pk_ss.str();
+	
 	ost.close();
-	return name;
 }
 
 //round_3, permuted the exponents in s,  picks random elements and commits to values
-string Prover_toom::round_3(string fileName)
+void Prover_toom::round_3()
 {
-	long i;
 	ZZ x2;
-	vector<vector<ZZ> *> *chal_x2 = new vector<vector<ZZ> *>(m);
-	ZZ ord = H.get_ord();
+	vector<vector<ZZ>*>* chal_x2 = new vector<vector<ZZ>*>(m);
 
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-
-	//reads in values of s
-	// ifstream ist(in_name.c_str());
-	// if (!ist)
-	// 	cout << "Can't open " << in_name;
-	
-	// ist >> x2;//round_2ä¸­Verifierç”Ÿæˆçš„æŒ‘æˆ˜
-
-	// ç”¨hashç”ŸæˆéšæœºæŒ‘æˆ˜x
-	string container="\0",in_temp;
-	ifstream ist(fileName.c_str());
-	if (!ist)
-		cout << "Can't open " << fileName;
-	while (ist >> in_temp)
-	{//æ¥æ”¶round_1ä¸­Proverçš„æ‰¿è¯º
-		container+=in_temp;
-	}
-	stringstream pk_ss;
-	pk_ss<<El.get_pk().get_val();
-	container+=pk_ss.str();
-	ist.close();
-
-	// cout<<"round_1: "<<container<<endl;
-	//hash
-	string hashStr=sha.hash(container);
+	// ÓÃhashÉú³ÉËæ»úÌôÕ½x
+	string hashValueStr = sha.hash(hashStr[0]);
 	ZZ hashValueZZ;
-	conv(hashValueZZ,hashStr.c_str());
-	Mod_p hashValueModP=Mod_p(hashValueZZ,H.get_mod());
-	while(hashValueModP.get_val()>ord)
-		hashValueModP.set_val(hashValueModP.get_val()-ord);
-	// x2 = RandomBnd(ord);
-	// cout<<"Rand: "<<x2<<endl;
-	// cout<<"ModP: "<<hashValueModP<<endl;
-	x2=hashValueModP.get_val();
+	conv(hashValueZZ, hashValueStr.c_str());
+	Mod_p hashValueModP = Mod_p(hashValueZZ, H.get_mod());
+	while (hashValueModP.get_val() > ord)
+		hashValueModP.set_val(hashValueModP.get_val() - ord);
+	x2 = hashValueModP.get_val();
 
-	//ç”Ÿæˆå†…å®¹ä¸ºx2, x2^2, ... , x2^Nçš„é¡ºåºçŸ©é˜µchal_x2
+	//Éú³ÉÄÚÈİÎªx2, x2^2, ... , x2^NµÄË³Ğò¾ØÕóchal_x2
 	func_pro::set_x2(chal_x2, x2, m, n);
 
-	//æ ¹æ®å‘é‡piå°†chal_x2é‡æ–°æ’åˆ—ï¼Œç”Ÿæˆshuffleåçš„çŸ©é˜µB
+	//¸ù¾İÏòÁ¿pi½«chal_x2ÖØĞÂÅÅÁĞ£¬Éú³ÉshuffleºóµÄ¾ØÕóB
 	func_pro::set_B_op(B, basis_B, chal_x2, pi, omega_mulex);
 
-	//å¯¹Bçš„æ¯ä¸€è¡Œç”Ÿæˆéšæœºæ•°å’Œæ‰¿è¯º
+	//¶ÔBµÄÃ¿Ò»ĞĞÉú³ÉËæ»úÊıºÍ³ĞÅµ
 	Functions::commit_op(B, r_B, c_B);
 
-	name = "prove_2.pro";
-	// name = name + to_string(time(&rawtime));
-	// name+=".pro";
-	//write data in the file name
-	ofstream ost(name.c_str(),ios::out);
-	for (i = 0; i < m; i++)
+	ofstream ost("prove.pro", ios::app);
+	stringstream ss1, ss2;
+	//2 c_B
+	for (int i = 0; i < m; i++)
 	{
 		ost << c_B->at(i) << "\n";
+		ss1 << c_B->at(i).get_val();
 	}
-	ost << endl;
+	
+	//3 x2
 	ost << x2 << endl;
+	ss1 << x2;
+	ss2 << x2;
+	
+	hashStr[1] = ss1.str() + pk_ss.str();
+	hashStr[2] = ss2.str() + pk_ss.str();
 	ost.close();
+
 	Functions::delete_vector(chal_x2);
-	return name;
 }
 
-//round_5a æ„å»ºçŸ©é˜µDï¼Œå¹¶å¯¹å‘é‡chal_zå’ŒD_håšæ‰¿è¯º
+//round_5a ¹¹½¨¾ØÕóD£¬²¢¶ÔÏòÁ¿chal_zºÍD_h×ö³ĞÅµ
 void Prover_toom::round_5a()
 {
 	long i;
 	ZZ temp, t; //temporary variables
-	vector<ZZ> *r = new vector<ZZ>(n);
-	vector<ZZ> *v_z = new vector<ZZ>(n); //row containing the challenge alpha
+	vector<ZZ>* r = new vector<ZZ>(n);
+	vector<ZZ>* v_z = new vector<ZZ>(n); //row containing the challenge alpha
 	ZZ ord = H.get_ord();
 	time_t rawtime;
 	time(&rawtime);
 
-	//ç”ŸæˆçŸ©é˜µD: y Ã— A_ij + B_ij - z
+	//Éú³É¾ØÕóD: y ¡Á A_ij + B_ij - z
 	func_pro::set_D(D, A, B, chal_z4, chal_y4);
 
-	//ç”Ÿæˆç”¨äºproduct argumentçš„çŸ©é˜µD_hï¼šSet the matrix D_h as the Hadamard product of the rows in D
+	//Éú³ÉÓÃÓÚproduct argumentµÄ¾ØÕóD_h£ºSet the matrix D_h as the Hadamard product of the rows in D
 	func_pro::set_D_h(D_h, D);
 
 	for (i = 0; i < n; i++)
@@ -283,109 +251,84 @@ void Prover_toom::round_5a()
 		NegateMod(r->at(i), to_ZZ(1), ord);
 	}
 
-	//å°†çŸ©é˜µDçš„æœ€åä¸€è¡Œç”¨â€œ-1â€å¡«å……
+	//½«¾ØÕóDµÄ×îºóÒ»ĞĞÓÃ¡°-1¡±Ìî³ä
 	D->at(m) = r;
-	//å°†ç”ŸæˆçŸ©é˜µAçš„æ‰¿è¯ºçš„éšæœºæ•°å‘é‡çš„æœ€åä¸€ä¸ªå€¼è®¾ä¸º0
+	//½«Éú³É¾ØÕóAµÄ³ĞÅµµÄËæ»úÊıÏòÁ¿µÄ×îºóÒ»¸öÖµÉèÎª0
 	r_A->at(m) = 0;
 
-	//å¯¹chal_zåšæ‰¿è¯º
+	//¶Ôchal_z×ö³ĞÅµ
 	Functions::commit_op(v_z, r_z, c_z);
-	//å¯¹D_hçš„æ¯ä¸€è¡Œè¿›è¡Œæ‰¿è¯º
-	Functions::commit_op(D_h, r_D_h, c_D_h);//r_D_hä¸ºt
+	//¶ÔD_hµÄÃ¿Ò»ĞĞ½øĞĞ³ĞÅµ
+	Functions::commit_op(D_h, r_D_h, c_D_h);//r_D_hÎªt
 
 	delete v_z;
-}
-
-void Prover_toom::round_5b()
-{
-	func_pro::set_Rb(B, R, R_b);//b_ij Ã— R_ijçš„ç»“æœç´¯åŠ 
+	func_pro::set_Rb(B, R, R_b);//b_ij ¡Á R_ijµÄ½á¹ûÀÛ¼Ó
 	commit_ac();
 	calculate_Cc(C, basis_B);
 }
 
-string Prover_toom::round_5(string fileName)
+void Prover_toom::round_5()
 {
-	long i;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-	ZZ ord = H.get_ord();
-
-	//reads the values out of the file
-	// ifstream ist(in_name.c_str());
-	// if (!ist)
-	// 	cout << "Can't open " << in_name;
-	// ist >> chal_z4;//round_4ä¸­Verifierç”Ÿæˆçš„æŒ‘æˆ˜z
-	// ist >> chal_y4;//round_4ä¸­Verifierç”Ÿæˆçš„æŒ‘æˆ˜y
-
-	// éšæœºæŒ‘æˆ˜y,z
-	string container1="\0",container2;
-	ifstream ist(fileName.c_str());
-	if (!ist)
-		cout << "Can't open " << fileName;
-	while (!ist.eof())
-	{//æ¥æ”¶round_1ä¸­Proverçš„æ‰¿è¯º
-		ist >> container2;
-		if(!ist.eof())
-			container1+=container2;
-	}
-	// cout<<"round_2: "<<container1<<endl;
-	// cout<<"round_3: "<<container2<<endl;
-	stringstream pk_ss;
-	pk_ss<<El.get_pk().get_val();
-	container1+=pk_ss.str();
-	container2+=pk_ss.str();
-	ist.close();
-
-	//hash
-	string hashStr1=sha.hash(container1);
+	// ÓÃhashÉú³ÉËæ»úÌôÕ½y,z
+	string hashValueStr1 = sha.hash(hashStr[1]);
 	ZZ hashValueZZ1;
-	conv(hashValueZZ1,hashStr1.c_str());
-	Mod_p hashValueModP1=Mod_p(hashValueZZ1,H.get_mod());
-	while(hashValueModP1.get_val()>ord)
-		hashValueModP1.set_val(hashValueModP1.get_val()-ord);
+	conv(hashValueZZ1, hashValueStr1.c_str());
+	Mod_p hashValueModP1 = Mod_p(hashValueZZ1, H.get_mod());
+	while (hashValueModP1.get_val() > ord)
+		hashValueModP1.set_val(hashValueModP1.get_val() - ord);
 
-	string hashStr2=sha.hash(container2);
+	string hashValueStr2 = sha.hash(hashStr[2]);
 	ZZ hashValueZZ2;
-	conv(hashValueZZ2,hashStr2.c_str());
-	Mod_p hashValueModP2=Mod_p(hashValueZZ2,H.get_mod());
-	while(hashValueModP2.get_val()>ord)
-		hashValueModP2.set_val(hashValueModP2.get_val()-ord);
+	conv(hashValueZZ2, hashValueStr2.c_str());
+	Mod_p hashValueModP2 = Mod_p(hashValueZZ2, H.get_mod());
+	while (hashValueModP2.get_val() > ord)
+		hashValueModP2.set_val(hashValueModP2.get_val() - ord);
 
-	// chal_z4 = RandomBnd(ord);
-	// chal_y4 = RandomBnd(ord);
-	chal_z4=hashValueModP1.get_val();
-	chal_y4=hashValueModP2.get_val();
+	chal_z4 = hashValueModP1.get_val();
+	chal_y4 = hashValueModP2.get_val();
 
-	round_5a();//æ„å»ºçŸ©é˜µDï¼Œå¹¶å¯¹å‘é‡chal_zå’ŒD_håšæ‰¿è¯º
-	round_5b();
-	//Set name of the output file and open stream
-	name = "prove_3.pro";
-	// name = name + to_string(time(&rawtime));
-	// name+=".pro";
-	ofstream ost(name.c_str(),ios::out);
-	//writes the commitments in the file
-	ost << c_z << "\n\n";
-	for (i = 0; i < m; i++)
-	{
-		ost << c_D_h->at(i) << "\n";
-	}
-	ost << "\n";
+	round_5a();//¹¹½¨¾ØÕóD£¬²¢¶ÔÏòÁ¿chal_zºÍD_h×ö³ĞÅµ
 
-	for (i = 0; i < mu_h; i++)
+	ofstream ost("prove.pro", ios::app);
+	stringstream ss1, ss2;
+	//4 c_z
+	ost << c_z << endl;
+	ss1 << c_z;
+	
+	//5 c_D_h
+	for (int i = 0; i < m; i++)
 	{
-		ost << C_c->at(i) << "\n";
+		ost << c_D_h->at(i) << endl;
+		ss1 << c_D_h->at(i);
 	}
-	ost << "\n";
-	for (i = 0; i < mu_h; i++)
+	
+	//6 C_c
+	for (int i = 0; i < mu_h; i++)
 	{
-		ost << c_a_c->at(i) << "\n";
+		ost << C_c->at(i) << endl;
+		ss1 << C_c->at(i);
 	}
-	ost << "\n";
-	ost << chal_y4 << "\n\n";
-	ost << chal_z4 << endl; 
+	
+	//7 c_a_c
+	for (int i = 0; i < mu_h; i++)
+	{
+		ost << c_a_c->at(i) << endl;
+		ss1 << c_a_c->at(i);
+	}
+	
+	//8 chal_y4
+	ost << chal_y4 << endl;
+	ss1 << chal_y4;
+	
+	//9 chal_z4
+	ost << chal_z4 << endl;
+	ss1 << chal_z4;
+	ss2 << chal_z4;
+	
+	hashStr[3] = ss1.str() + pk_ss.str();
+	hashStr[4] = ss2.str() + pk_ss.str();
+
 	ost.close();
-	return name;
 }
 
 void Prover_toom::round_7a()
@@ -405,18 +348,11 @@ void Prover_toom::round_7a()
 	func_pro::commit_d_op(d, r_d, c_d);
 	func_pro::commit_Delta_op(Delta, d, r_Delta, c_Delta);
 	func_pro::commit_d_h_op(D_h, d_h, d, Delta, r_d_h, c_d_h);
-}
-
-void Prover_toom::round_7b()
-{
 	calculate_ac_bar(chal_x6);
 	calculate_r_ac_bar(chal_x6);
-}
 
-void Prover_toom::round_7c()
-{
 	double tstart, tstop;
-	vector<Cipher_elg> *e = 0;
+	vector<Cipher_elg>* e = 0;
 
 	tstart = (double)clock() / CLOCKS_PER_SEC;
 	reduce_C(C, B, r_B, chal_x6, m_r);
@@ -439,119 +375,102 @@ void Prover_toom::round_7c()
 	Functions::delete_vector(C_small);
 }
 
-string Prover_toom::round_7(string fileName)
+void Prover_toom::round_7()
 {
-	long i, l;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-	l = 2 * m;
-	ZZ ord = H.get_ord();
-	//reads the values out of the file
-	/* ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	//reads the vector t_1
-	l = 2 * m;
-	for (i = 0; i < l; i++)
-	{
-		ist >> chal_x6->at(i);
-	}
-	//reads the vector t
-	for (i = 0; i < n; i++)
-	{
-		ist >> chal_y6->at(i);
-	} */
-
-	// éšæœºæŒ‘æˆ˜y,z
-	string container1="\0",container2;
-	ifstream ist(fileName.c_str());
-	if (!ist)
-		cout << "Can't open " << fileName;
-	while (!ist.eof())
-	{//æ¥æ”¶round_1ä¸­Proverçš„æ‰¿è¯º
-		ist >> container2;
-		if(!ist.eof())
-			container1+=container2;
-	}
-	// cout<<"round_2: "<<container1<<endl;
-	// cout<<"round_3: "<<container2<<endl;
-	stringstream pk_ss;
-	pk_ss<<El.get_pk().get_val();
-	container1+=pk_ss.str();
-	container2+=pk_ss.str();
-	ist.close();
-
-	//hash
-	string hashStr1=sha.hash(container1);
+	// ÓÃhashÉú³ÉËæ»úÌôÕ½y,z
+	string hashValueStr1 = sha.hash(hashStr[3]);
 	ZZ hashValueZZ1;
-	conv(hashValueZZ1,hashStr1.c_str());
-	Mod_p hashValueModP1=Mod_p(hashValueZZ1,H.get_mod());
-	while(hashValueModP1.get_val()>ord)
-		hashValueModP1.set_val(hashValueModP1.get_val()-ord);
+	conv(hashValueZZ1, hashValueStr1.c_str());
+	Mod_p hashValueModP1 = Mod_p(hashValueZZ1, H.get_mod());
+	while (hashValueModP1.get_val() > ord)
+		hashValueModP1.set_val(hashValueModP1.get_val() - ord);
 
-	string hashStr2=sha.hash(container2);
+	string hashValueStr2 = sha.hash(hashStr[4]);
 	ZZ hashValueZZ2;
-	conv(hashValueZZ2,hashStr2.c_str());
-	Mod_p hashValueModP2=Mod_p(hashValueZZ2,H.get_mod());
-	while(hashValueModP2.get_val()>ord)
-		hashValueModP2.set_val(hashValueModP2.get_val()-ord);
+	conv(hashValueZZ2, hashValueStr2.c_str());
+	Mod_p hashValueModP2 = Mod_p(hashValueZZ2, H.get_mod());
+	while (hashValueModP2.get_val() > ord)
+		hashValueModP2.set_val(hashValueModP2.get_val() - ord);
 
-	// chal_z4 = RandomBnd(ord);
-	// chal_y4 = RandomBnd(ord);
-	ZZ chal_x6_temp=hashValueModP1.get_val();
-	ZZ chal_y6_temp=hashValueModP2.get_val();
-
-	// éšæœºæŒ‘æˆ˜
-	//sets the vector t to the values temp, temp^2,...
-	func_ver::fill_vector(chal_x6,chal_x6_temp);
-	func_ver::fill_vector(chal_y6,chal_y6_temp);
+	ZZ chal_x6_temp = hashValueModP1.get_val();
+	ZZ chal_y6_temp = hashValueModP2.get_val();
+	func_ver::fill_vector(chal_x6, chal_x6_temp);
+	func_ver::fill_vector(chal_y6, chal_y6_temp);
 
 	round_7a();
-	round_7b();
-	round_7c();
 
-	//Set name of the output file and open stream
-	name = "prove_4.pro";
-	// name = name + to_string(time(&rawtime));
-	// name+=".pro";
-	ofstream ost(name.c_str(),ios::out);
-	for (i = 0; i <= l; i++)
-	{//2m+1
-		ost << c_Dl->at(i) << "\n";
-	}
-	ost << "\n";
-	ost << c_D0 << "\n\n";
-	ost << c_Dm << "\n\n";
-	ost << c_d << "\n\n";
-	ost << c_Delta << "\n\n";
-	ost << c_d_h << "\n\n";
-	ost << a_c_bar << "\n\n";
-	ost << r_ac_bar << "\n\n";
-	for (i = 0; i < 8; i++)
+	ofstream ost("prove.pro", ios::app);
+	stringstream ss;
+	//10 c_Dl
+	for (int i = 0; i <= 2 * m; i++)
 	{
-		ost << E->at(i) << "\n";
+		ost << c_Dl->at(i) << endl;
+		ss << c_Dl->at(i);
 	}
-	ost << "\n";
-	ost << c_B0 << "\n\n";
-	for (i = 0; i < 8; i++)
+	
+	//11 c_D0
+	ost << c_D0 << endl;
+	ss << c_D0;
+	
+	//12 c_Dm
+	ost << c_Dm << endl;
+	ss << c_Dm;
+	
+	//13 c_d
+	ost << c_d << endl;
+	ss << c_d;
+	
+	//14 c_Delta
+	ost << c_Delta << endl;
+	ss << c_Delta;
+	
+	//15 c_d_h
+	ost << c_d_h << endl;
+	ss << c_d_h;
+	
+	//16 a_c_bar
+	ost << a_c_bar << endl;
+	ss << a_c_bar;
+	
+	//17 r_ac_bar
+	ost << r_ac_bar << endl;
+	ss << r_ac_bar;
+	
+	//18 E
+	for (int i = 0; i < 8; i++)
 	{
-		ost << c_a->at(i) << "\n";
+		ost << E->at(i) << endl;
+		ss << E->at(i);
 	}
-	ost << "\n";
+	
+	//19 c_B0
+	ost << c_B0 << endl;
+	ss << c_B0;
+	
+	//20 c_a
+	for (int i = 0; i < 8; i++)
+	{
+		ost << c_a->at(i) << endl;
+		ss << c_a->at(i);
+	}
+	
+	//21 chal_x6
+	for (int i = 0; i < chal_x6->size(); i++)
+	{
+		ost << chal_x6->at(i) << endl;
+		ss << chal_x6->at(i);
+	}
+	
+	//22 chal_y6
+	for (int i = 0; i < chal_y6->size(); i++)
+	{
+		ost << chal_y6->at(i) << endl;
+		ss << chal_y6->at(i);
+	}
+	
+	hashStr[5] = ss.str() + pk_ss.str();
 
-	for (i = 0; i < chal_x6->size(); i++)
-	{
-		ost << chal_x6->at(i) << "\n";
-	}
-	ost << "\n";
-	for (i = 0; i < chal_y6->size(); i++)
-	{
-		ost << chal_y6->at(i) << "\n";
-	}
-	ost << endl;
-
-	return name;
+	ost.close();
 }
 
 void Prover_toom::round_9a()
@@ -566,10 +485,6 @@ void Prover_toom::round_9a()
 	//calculate d_bar, r_d_bar, Delta_bar, r_Delta_bar, openings to prove product over elements in D_h->at(m-1)
 	func_pro::calculate_dbar_rdbar(D_h, chal_x8, d_bar, d, r_D_h, r_d, r_d_bar);
 	func_pro::calculate_Deltabar_rDeltabar(d_h, chal_x8, Delta_bar, Delta, r_d_h, r_Delta, r_Delta_bar);
-}
-
-void Prover_toom::round_9b()
-{
 
 	//A_bar and r_A_bar, openings to prove permutation in D
 	func_pro::calculate_A_bar(D, A_bar, chal_x8);
@@ -581,10 +496,7 @@ void Prover_toom::round_9b()
 
 	//sum of the random values used to commit to the Dl's, to prover correctness of them
 	func_pro::calculate_r_Dl_bar(r_Dl, chal_x8, r_Dl_bar);
-}
 
-void Prover_toom::round_9c()
-{
 	//calculate B_bar
 	func_pro::calculate_B_bar(B_0, B_small, chal_x8, B_bar);
 	Functions::delete_vector(B_small);
@@ -604,151 +516,97 @@ void Prover_toom::round_9c()
 
 int Prover_toom::round_9()
 {
-	time_t tstart =clock();
+	this->round_1();
+	this->round_3();//Éú³ÉÒ»¸öÌôÕ½
+	this->round_5();//Éú³ÉÁ½¸öÌôÕ½
+	this->round_7();//Éú³ÉÁ½¸öÌôÕ½
 
-	long i;
-	long l = chal_x8->size();
-	ZZ tem;
-	string name;
-	time_t rawtime;
-	time(&rawtime);
-	ZZ ord = H.get_ord();
-	string filename;
-	filename=this->round_1();
-	filename=this->round_3(filename);//ç”Ÿæˆä¸€ä¸ªæŒ‘æˆ˜
-	filename=this->round_5(filename);//ç”Ÿæˆä¸¤ä¸ªæŒ‘æˆ˜
-	filename=this->round_7(filename);//ç”Ÿæˆä¸¤ä¸ªæŒ‘æˆ˜
-
-	/* //reads the values out of the file
-	ifstream ist(in_name.c_str());
-	if (!ist)
-		cout << "Can't open " << in_name;
-	//reads the vector e
-	for (i = 0; i < l; i++)
-	{
-		ist >> chal_x8->at(i);
-	} */
-
-	// ç”¨hashç”ŸæˆéšæœºæŒ‘æˆ˜x
-	string container="\0",in_temp;
-	ifstream ist(filename.c_str());
-	if (!ist)
-		cout << "Can't open " << filename;
-	while (ist >> in_temp)
-	{//æ¥æ”¶round_1ä¸­Proverçš„æ‰¿è¯º
-		container+=in_temp;
-	}
-	stringstream pk_ss;
-	pk_ss<<El.get_pk().get_val();
-	container+=pk_ss.str();
-	ist.close();
-
-	// cout<<"round_1: "<<container<<endl;
-	//hash
-	string hashStr=sha.hash(container);
+	// ÓÃhashÉú³ÉËæ»úÌôÕ½x
+	string hashValueStr = sha.hash(hashStr[5]);
 	ZZ hashValueZZ;
-	conv(hashValueZZ,hashStr.c_str());
-	Mod_p hashValueModP=Mod_p(hashValueZZ,H.get_mod());
-	while(hashValueModP.get_val()>ord)
-		hashValueModP.set_val(hashValueModP.get_val()-ord);
-	// x2 = RandomBnd(ord);
-	// cout<<"Rand: "<<x2<<endl;
-	// cout<<"ModP: "<<hashValueModP<<endl;
-	ZZ chal_x8_temp=hashValueModP.get_val();
+	conv(hashValueZZ, hashValueStr.c_str());
+	Mod_p hashValueModP = Mod_p(hashValueZZ, H.get_mod());
+	while (hashValueModP.get_val() > ord)
+		hashValueModP.set_val(hashValueModP.get_val() - ord);
+	ZZ chal_x8_temp = hashValueModP.get_val();
 
-	//ä¸€ä¸ªéšæœºæŒ‘æˆ˜
-	func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega,chal_x8_temp);
-	// l = chal_x8->size();
+	//Ò»¸öËæ»úÌôÕ½
+	func_pro::fill_x8(chal_x8, chal_x8_temp);
 
 	round_9a();
-	round_9b();
-	round_9c();
 
-	//Set name of the output file and open stream
-	name = "prove_5.pro";
-	// name = name + to_string(time(&rawtime));
-	// name+=".pro";
-
-	ofstream ost(name.c_str(),ios::out);
-
-	for (i = 0; i < n; i++)
+	ofstream ost("prove.pro", ios::app);
+	//23 D_h_bar
+	for (int i = 0; i < n; i++)
 	{
-		ost << D_h_bar->at(i) << "\n";
+		ost << D_h_bar->at(i) << endl;
 	}
-	ost << "\n";
-
-	ost << r_Dh_bar<< "\n\n";
-
-	for (i = 0; i < n; i++)
+	
+	//24 r_Dh_bar
+	ost << r_Dh_bar << endl;
+	
+	//25 d_bar
+	for (int i = 0; i < n; i++)
 	{
-		ost << d_bar->at(i) << "\n";
+		ost << d_bar->at(i) << endl;
 	}
-	ost << "\n";
-	ost << r_d_bar << "\n\n";
-	for (i = 0; i < n; i++)
+	
+	//26 r_d_bar
+	ost << r_d_bar << endl;
+	
+	//27 Delta_bar
+	for (int i = 0; i < n; i++)
 	{
-		ost << Delta_bar->at(i) << "\n";
+		ost << Delta_bar->at(i) << endl;
 	}
-	ost << "\n";
-	ost << r_Delta_bar << "\n\n";
-
-	for (i = 0; i < n; i++)
+	
+	//28 r_Delta_bar
+	ost << r_Delta_bar << endl;
+	
+	//29 A_bar
+	for (int i = 0; i < n; i++)
 	{
-		ost << A_bar->at(i) << "\n";
+		ost << A_bar->at(i) << endl;
 	}
-	ost << "\n";
-	ost << r_A_bar << "\n\n";
-	for (i = 0; i < n; i++)
+	
+	//30 r_A_bar
+	ost << r_A_bar << endl;
+	
+	//31 D_s_bar
+	for (int i = 0; i < n; i++)
 	{
-		ost << D_s_bar->at(i) << "\n";
+		ost << D_s_bar->at(i) << endl;
 	}
-	ost << "\n";
-	ost << r_Ds_bar << "\n\n";
-	ost << r_Dl_bar << "\n\n";
-	for (i = 0; i < n; i++)
+	
+	//32 r_Ds_bar
+	ost << r_Ds_bar << endl;
+	
+	//33 r_Dl_bar
+	ost << r_Dl_bar << endl;
+	
+	//34 B_bar
+	for (int i = 0; i < n; i++)
 	{
-		ost << B_bar->at(i) << "\n";
+		ost << B_bar->at(i) << endl;
 	}
-	ost << "\n";
+	
+	//35 r_B_bar
+	ost << r_B_bar << endl;
+	
+	//36 a_bar
+	ost << a_bar << endl;
+	
+	//37 r_a_bar
+	ost << r_a_bar << endl;
+	
+	//38 rho_bar
+	ost << rho_bar << endl;
+	
+	//39 chal_x8_temp
+	ost << chal_x8_temp << endl;
+	
+	ost.close();
 
-	ost << r_B_bar<<"\n\n";
-
-	ost << a_bar<<"\n\n";
-
-	ost << r_a_bar<<"\n\n";
-
-	ost << rho_bar<<"\n\n";
-
-	ost << chal_x8->size() <<"\n\n";
-	for (i = 0; i < chal_x8->size(); i++)
-	{
-		ost << chal_x8->at(i) << "\n";
-	} 
-	ost << "\n";
-
-	ost << basis_chal_x8->size() <<"\n\n";
-	ost << basis_chal_x8->at(0)->size() <<"\n\n";
-
-	for (i = 0; i < basis_chal_x8->size(); i++)
-	{
-		for (int j = 0; j < basis_chal_x8->at(0)->size(); j++)
-		{
-			ost << basis_chal_x8->at(i)->at(j) << " ";
-		} 
-		ost << "\n";
-	} 
-	ost << "\n";
-
-	ost << mul_chal_x8->size() <<"\n\n";
-	for (i = 0; i < mul_chal_x8->size(); i++)
-	{
-		ost << mul_chal_x8->at(i) << "\n";
-	} 
-	ost << "\n";
-
-	time_t tstop = clock();
-	double ttime= (tstop-tstart)/(double)CLOCKS_PER_SEC*1000;
-	cout<<"To generate the proof took "<< ttime <<" ms."<<endl;
 	return 0;
 }
 
@@ -772,7 +630,7 @@ void Prover_toom::commit_ac()
 	}
 }
 
-void Prover_toom::calculate_Cc(vector<vector<Cipher_elg> *> *C, vector<vector<vector<long> *> *> *B)
+void Prover_toom::calculate_Cc(vector<vector<Cipher_elg>*>* C, vector<vector<vector<long>*>*>* B)
 {
 	long i, j, l, k;
 	ZZ mod = H.get_mod();
@@ -806,7 +664,7 @@ void Prover_toom::calculate_Cc(vector<vector<Cipher_elg> *> *C, vector<vector<ve
 	time_di = time_di + (tstop - tstart);
 }
 
-void Prover_toom::calculate_Cc(vector<vector<Cipher_elg> *> *C, vector<vector<ZZ> *> *B)
+void Prover_toom::calculate_Cc(vector<vector<Cipher_elg>*>* C, vector<vector<ZZ>*>* B)
 {
 	long i, j, l, k;
 	ZZ mod = H.get_mod();
@@ -840,7 +698,7 @@ void Prover_toom::calculate_Cc(vector<vector<Cipher_elg> *> *C, vector<vector<ZZ
 	time_di = time_di + (tstop - tstart);
 }
 
-void Prover_toom::calculate_ac_bar(vector<ZZ> *x)
+void Prover_toom::calculate_ac_bar(vector<ZZ>* x)
 {
 	long i;
 	ZZ temp;
@@ -854,7 +712,7 @@ void Prover_toom::calculate_ac_bar(vector<ZZ> *x)
 	}
 }
 
-void Prover_toom::calculate_r_ac_bar(vector<ZZ> *x)
+void Prover_toom::calculate_r_ac_bar(vector<ZZ>* x)
 {
 	long i;
 	ZZ temp;
@@ -868,15 +726,15 @@ void Prover_toom::calculate_r_ac_bar(vector<ZZ> *x)
 	}
 }
 
-void Prover_toom::reduce_C(vector<vector<Cipher_elg> *> *C, vector<vector<ZZ> *> *B, vector<ZZ> *r_B, vector<ZZ> *x, long length)
+void Prover_toom::reduce_C(vector<vector<Cipher_elg>*>* C, vector<vector<ZZ>*>* B, vector<ZZ>* r_B, vector<ZZ>* x, long length)
 {
 	long i, j;
 	ZZ temp, temp_1;
 	ZZ ord = H.get_ord();
 	double tstart, tstop;
-	vector<Cipher_elg> *row_C = 0;
-	vector<ZZ> *row_B = 0;
-	vector<ZZ> *x_temp = new vector<ZZ>(4);
+	vector<Cipher_elg>* row_C = 0;
+	vector<ZZ>* row_B = 0;
+	vector<ZZ>* x_temp = new vector<ZZ>(4);
 
 	tstart = (double)clock() / CLOCKS_PER_SEC;
 	x_temp->at(3) = 1;
@@ -916,7 +774,7 @@ void Prover_toom::reduce_C(vector<vector<Cipher_elg> *> *C, vector<vector<ZZ> *>
 	delete x_temp;
 }
 
-void Prover_toom::set_Rb1(vector<ZZ> *x)
+void Prover_toom::set_Rb1(vector<ZZ>* x)
 {
 	long i;
 	ZZ temp;
@@ -930,14 +788,14 @@ void Prover_toom::set_Rb1(vector<ZZ> *x)
 	}
 }
 
-vector<Cipher_elg> *Prover_toom::calculate_e()
+vector<Cipher_elg>* Prover_toom::calculate_e()
 {
 	long k, l;
 	Cipher_elg temp;
 	ZZ ord = H.get_ord();
 	ZZ mod = H.get_mod();
-	vector<Cipher_elg> *dt = 0;
-	vector<Cipher_elg> *e = new vector<Cipher_elg>(2 * m);
+	vector<Cipher_elg>* dt = 0;
+	vector<Cipher_elg>* e = new vector<Cipher_elg>(2 * m);
 
 	dt = toom4_pow(C_small, B_small);
 
@@ -957,7 +815,7 @@ vector<Cipher_elg> *Prover_toom::calculate_e()
 	return e;
 }
 
-void Prover_toom::calculate_E(vector<Cipher_elg> *e)
+void Prover_toom::calculate_E(vector<Cipher_elg>* e)
 {
 	long i, l;
 	Mod_p t;
@@ -977,12 +835,12 @@ void Prover_toom::calculate_E(vector<Cipher_elg> *e)
 	}
 }
 
-vector<vector<Cipher_elg> *> *Prover_toom::copy_C()
+vector<vector<Cipher_elg>*>* Prover_toom::copy_C()
 {
 	long i, j, l;
-	vector<Cipher_elg> *row_C;
+	vector<Cipher_elg>* row_C;
 	l = mu * m_r;
-	vector<vector<Cipher_elg> *> *C_small_temp = new vector<vector<Cipher_elg> *>(l);
+	vector<vector<Cipher_elg>*>* C_small_temp = new vector<vector<Cipher_elg>*>(l);
 
 	for (i = 0; i < l; i++)
 	{
@@ -1001,12 +859,12 @@ vector<vector<Cipher_elg> *> *Prover_toom::copy_C()
 	return C_small_temp;
 }
 
-vector<vector<ZZ> *> *Prover_toom::copy_B()
+vector<vector<ZZ>*>* Prover_toom::copy_B()
 {
 	long i, j;
 	long l = mu * m_r;
-	vector<vector<ZZ> *> *B_small_temp = new vector<vector<ZZ> *>(l);
-	vector<ZZ> *row_B;
+	vector<vector<ZZ>*>* B_small_temp = new vector<vector<ZZ>*>(l);
+	vector<ZZ>* row_B;
 
 	for (i = 0; i < l; i++)
 	{
@@ -1024,11 +882,11 @@ vector<vector<ZZ> *> *Prover_toom::copy_B()
 	return B_small_temp;
 }
 
-vector<ZZ> *Prover_toom::copy_r_B()
+vector<ZZ>* Prover_toom::copy_r_B()
 {
 	long i;
 	long l = mu * m_r;
-	vector<ZZ> *r_B_small_temp = new vector<ZZ>(l);
+	vector<ZZ>* r_B_small_temp = new vector<ZZ>(l);
 	for (i = 0; i < l; i++)
 	{
 		r_B_small_temp->at(i) = r_B_small->at(i);
@@ -1039,15 +897,15 @@ vector<ZZ> *Prover_toom::copy_r_B()
 	return r_B_small_temp;
 }
 
-vector<vector<ZZ> *> *Prover_toom::evulation(vector<vector<ZZ> *> *p)
+vector<vector<ZZ>*>* Prover_toom::evulation(vector<vector<ZZ>*>* p)
 {
-	vector<vector<ZZ> *> *ret;
-	vector<ZZ> *row;
+	vector<vector<ZZ>*>* ret;
+	vector<ZZ>* row;
 	ZZ p0, p1, p2, p3, ord, temp, temp_1;
 	long l, i;
 	l = p->at(0)->size();
 	ord = H.get_ord();
-	ret = new vector<vector<ZZ> *>(l);
+	ret = new vector<vector<ZZ>*>(l);
 
 	for (i = 0; i < l; i++)
 	{
@@ -1077,22 +935,22 @@ vector<vector<ZZ> *> *Prover_toom::evulation(vector<vector<ZZ> *> *p)
 	return ret;
 }
 
-vector<vector<vector<ZZ> *> *> *Prover_toom::evulation_pow(vector<vector<Cipher_elg> *> *p)
+vector<vector<vector<ZZ>*>*>* Prover_toom::evulation_pow(vector<vector<Cipher_elg>*>* p)
 {
-	vector<vector<vector<ZZ> *> *> *ret;
-	vector<vector<ZZ> *> *ret_u;
-	vector<vector<ZZ> *> *ret_v;
-	vector<ZZ> *row_u;
-	vector<ZZ> *row_v;
+	vector<vector<vector<ZZ>*>*>* ret;
+	vector<vector<ZZ>*>* ret_u;
+	vector<vector<ZZ>*>* ret_v;
+	vector<ZZ>* row_u;
+	vector<ZZ>* row_v;
 	ZZ p0_u, p1_u, p2_u, p3_u, temp_u, temp_1_u;
 	ZZ p0_v, p1_v, p2_v, p3_v, temp_v, temp_1_v;
 	ZZ mod = H.get_mod();
 	long l, i;
 	l = p->at(0)->size();
 
-	ret = new vector<vector<vector<ZZ> *> *>(2);
-	ret_u = new vector<vector<ZZ> *>(l);
-	ret_v = new vector<vector<ZZ> *>(l);
+	ret = new vector<vector<vector<ZZ>*>*>(2);
+	ret_u = new vector<vector<ZZ>*>(l);
+	ret_v = new vector<vector<ZZ>*>(l);
 
 	for (i = 0; i < l; i++)
 	{
@@ -1151,20 +1009,20 @@ vector<vector<vector<ZZ> *> *> *Prover_toom::evulation_pow(vector<vector<Cipher_
 	return ret;
 }
 
-vector<vector<vector<ZZ> *> *> *Prover_toom::point_pow(vector<vector<vector<ZZ> *> *> *points_p, vector<vector<ZZ> *> *points_q)
+vector<vector<vector<ZZ>*>*>* Prover_toom::point_pow(vector<vector<vector<ZZ>*>*>* points_p, vector<vector<ZZ>*>* points_q)
 {
 	long i, j, l;
-	vector<vector<vector<ZZ> *> *> *ret;
-	vector<vector<ZZ> *> *ret_u;
-	vector<vector<ZZ> *> *ret_v;
-	vector<ZZ> *row_u;
-	vector<ZZ> *row_v;
+	vector<vector<vector<ZZ>*>*>* ret;
+	vector<vector<ZZ>*>* ret_u;
+	vector<vector<ZZ>*>* ret_v;
+	vector<ZZ>* row_u;
+	vector<ZZ>* row_v;
 	ZZ mod = H.get_mod();
 	l = points_p->at(0)->size();
 
-	ret = new vector<vector<vector<ZZ> *> *>(2);
-	ret_u = new vector<vector<ZZ> *>(l);
-	ret_v = new vector<vector<ZZ> *>(l);
+	ret = new vector<vector<vector<ZZ>*>*>(2);
+	ret_u = new vector<vector<ZZ>*>(l);
+	ret_v = new vector<vector<ZZ>*>(l);
 	for (j = 0; j < l; j++)
 	{
 		row_u = new vector<ZZ>(7);
@@ -1198,12 +1056,12 @@ vector<vector<vector<ZZ> *> *> *Prover_toom::point_pow(vector<vector<vector<ZZ> 
 	return ret;
 }
 
-vector<vector<ZZ> *> *Prover_toom::mult_points(vector<vector<vector<ZZ> *> *> *points)
+vector<vector<ZZ>*>* Prover_toom::mult_points(vector<vector<vector<ZZ>*>*>* points)
 {
 	long i, l, j;
-	vector<vector<ZZ> *> *ret = new vector<vector<ZZ> *>(2);
-	vector<ZZ> *ret_u = new vector<ZZ>(7);
-	vector<ZZ> *ret_v = new vector<ZZ>(7);
+	vector<vector<ZZ>*>* ret = new vector<vector<ZZ>*>(2);
+	vector<ZZ>* ret_u = new vector<ZZ>(7);
+	vector<ZZ>* ret_v = new vector<ZZ>(7);
 	l = points->at(0)->size();
 	ZZ temp_u, temp_v;
 	ZZ mod = H.get_mod();
@@ -1237,9 +1095,9 @@ vector<vector<ZZ> *> *Prover_toom::mult_points(vector<vector<vector<ZZ> *> *> *p
 	return ret;
 }
 
-vector<ZZ> *Prover_toom::interpolation_pow(vector<ZZ> *points)
+vector<ZZ>* Prover_toom::interpolation_pow(vector<ZZ>* points)
 {
-	vector<ZZ> *ret = new vector<ZZ>(7);
+	vector<ZZ>* ret = new vector<ZZ>(7);
 	ZZ r1, r2, r3, r4, r5, r6, r7, temp;
 	ZZ ord = H.get_ord();
 	ZZ mod = H.get_mod();
@@ -1314,15 +1172,15 @@ vector<ZZ> *Prover_toom::interpolation_pow(vector<ZZ> *points)
 	return ret;
 }
 
-vector<Cipher_elg> *Prover_toom::toom4_pow(vector<vector<Cipher_elg> *> *p, vector<vector<ZZ> *> *q)
+vector<Cipher_elg>* Prover_toom::toom4_pow(vector<vector<Cipher_elg>*>* p, vector<vector<ZZ>*>* q)
 {
-	vector<vector<vector<ZZ> *> *> *points_p;
-	vector<vector<ZZ> *> *points_q;
-	vector<vector<vector<ZZ> *> *> *points_temp;
-	vector<vector<ZZ> *> *points;
-	vector<ZZ> *ret_u;
-	vector<ZZ> *ret_v;
-	vector<Cipher_elg> *ret = new vector<Cipher_elg>(7);
+	vector<vector<vector<ZZ>*>*>* points_p;
+	vector<vector<ZZ>*>* points_q;
+	vector<vector<vector<ZZ>*>*>* points_temp;
+	vector<vector<ZZ>*>* points;
+	vector<ZZ>* ret_u;
+	vector<ZZ>* ret_v;
+	vector<Cipher_elg>* ret = new vector<Cipher_elg>(7);
 	long i, l;
 	ZZ mod = H.get_mod();
 	points_p = evulation_pow(p);

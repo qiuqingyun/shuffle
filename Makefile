@@ -33,10 +33,10 @@ CXX = g++
 
 # compiler / linker flags
 CFLAGS= \
-        -g \
+        -O2 \
         -I $(INC_DIR)
 CXXFLAGS=\
-		-g \
+		-O2 \
         -I $(INC_DIR) \
 		-std=c++17
 
@@ -56,19 +56,13 @@ FILES = \
 	func_ver\
 	Functions\
 	G_mem\
-	G_mod_p\
 	G_q\
 	Mod_p\
 	multi_expo\
 	Pedersen\
 	Permutation\
-	Prover_fft\
-	Prover_me\
 	Prover_toom\
-	Prover\
-	Verifier_me\
 	Verifier_toom\
-	Verifier\
 	sha256
 
 

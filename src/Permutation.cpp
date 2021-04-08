@@ -1,10 +1,3 @@
-/*
- * Permutation.cpp
- *
- *  Created on: 22.10.2010
- *      Author: stephaniebayer
- */
-
 #include "Permutation.h"
 #include <stdio.h>
 #include <time.h>
@@ -24,26 +17,26 @@ Permutation::~Permutation() {
 }
 
 //creates permuation of the numbers 1 to N as a vector
-vector<long>* Permutation::permutation(long N){
+vector<long>* Permutation::permutation(long N) {
 
 	vector<long>* v = new vector<long >(N);
 	long i, r, temp;
 	//vector containing the values 1 to N ordered
-	for (i=0; i<N; i++){
+	for (i = 0; i < N; i++) {
 
-		v->at(i)= i+1;
+		v->at(i) = i + 1;
 	}
 	//new seed for the randomness
-	SetSeed(to_ZZ(time(0)));
+	SetSeed(to_ZZ((unsigned int)time(0)));
 
 	//create N times a random number <N, calculates r = i+r%N and switchs the values v[i] and v[r]
-	for (i=0; i<N; i++)
-	{//éšæœºäº’æ¢
+	for (i = 0; i < N; i++)
+	{//Ëæ»ú»¥»»
 		r = RandomBnd(N);
 		temp = (*v)[i];
-		r=(i+r)%N;
-		v->at(i)=v->at(r);
-		v->at(r)=temp;
+		r = (i + r) % N;
+		v->at(i) = v->at(r);
+		v->at(r) = temp;
 	}
 	/* string name = "permu.txt";
 	ofstream ost;
@@ -60,46 +53,46 @@ vector<long>* Permutation::permutation(long N){
  * associated position in a matrix and saves this.
  * For example N 0 15, m=3, n = 5, if the first value in the permutation vector is 7, then the element in the matrix,
  *  the position (0,0) would be (1,1)*/
-void Permutation::perm_matrix(vector<vector<vector<long>* >* >*  pi, long n, long m)
-{//è¿”å›ä¸€ä¸ªåŒ…å«å¯¹åº”å…ƒç´ shuffleåè¡Œåˆ—ä½ç½®çš„çŸ©é˜µ
-	vector<long>* v=0;
-	long i,j,k,t_1,t_2;
-	vector<vector<long>* >* r=0;
-	vector<long>* el= 0;
+void Permutation::perm_matrix(vector<vector<vector<long>* >* >* pi, long n, long m)
+{//·µ»ØÒ»¸ö°üº¬¶ÔÓ¦ÔªËØshuffleºóĞĞÁĞÎ»ÖÃµÄ¾ØÕó
+	vector<long>* v = 0;
+	long i, j, k, t_1, t_2;
+	vector<vector<long>* >* r = 0;
+	vector<long>* el = 0;
 	//generates random permutation
-	v = permutation(n*m);
+	v = permutation(n * m);
 	// for(int x=0;x<n*m;x++)
 	// 	cout<<v->at(x)<<" ";
 	// cout<<endl;
-	for (i=0; i< m; i++){
+	for (i = 0; i < m; i++) {
 
-		r=new vector<vector<long>* >(n);
-		for (j=0; j<n; j++){
+		r = new vector<vector<long>* >(n);
+		for (j = 0; j < n; j++) {
 
-			k= i*n +j;//vçš„index 
-			t_1 = v->at(k)/n;//shuffleåçš„è¡Œ
+			k = i * n + j;//vµÄindex 
+			t_1 = v->at(k) / n;//shuffleºóµÄĞĞ
 
-			t_2 = v->at(k)%n;//shuffleåçš„åˆ—
+			t_2 = v->at(k) % n;//shuffleºóµÄÁĞ
 			if (t_2 == 0)
 			{
-				t_1 = t_1 -1;
-				t_2 = n-1;
+				t_1 = t_1 - 1;
+				t_2 = n - 1;
 			}
 			else
 			{
-				t_2 = t_2-1;
+				t_2 = t_2 - 1;
 			}
-			el=new vector<long>(2);
-			el->at(0)=t_1;
-			el->at(1)= t_2;
-			r->at(j)=el;
+			el = new vector<long>(2);
+			el->at(0) = t_1;
+			el->at(1) = t_2;
+			r->at(j) = el;
 			// cout<<"("<<r->at(j)->at(0)<<",";
 			// cout<<r->at(j)->at(1)<<") ";
 		}
 		// for(int x=0;x<n;x++)
 			// cout<<r->at(x)<<" ";
 		// cout<<endl;
-		pi->at(i)=r;
+		pi->at(i) = r;
 	}
 
 	delete v;

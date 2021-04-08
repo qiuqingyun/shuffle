@@ -1,30 +1,21 @@
-/*
- * Functions.cpp
- *
- *  Created on: 26.10.2010
- *      Author: stephaniebayer
- */
-
-#include "Functions.h"
-#include "G_q.h"
-#include "ElGammal.h"
-#include "Pedersen.h"
-#include "Cipher_elg.h"
-
+﻿#include "Functions.h"
 #include <NTL/ZZ.h>
 NTL_CLIENT
 
 #include <vector>
-using namespace std;
 #include <iostream>
 #include <time.h>
 #include <fstream>
 #include <sstream>
+#include <stdlib.h>
+using namespace std;
 
 extern G_q G;
 extern G_q H;
 extern ElGammal El;
 extern Pedersen Ped;
+vector<vector<Cipher_elg>*>* c = 0;	  //原始输入的密文
+vector<vector<Cipher_elg>*>* C = 0;	  //重加密的密文
 
 #define DEBUG 1
 
@@ -38,225 +29,49 @@ Functions::~Functions()
 	// TODO Auto-generated destructor stub
 }
 
-void Functions::read_config(vector<long> &num, ZZ &genq)
-{
-	ifstream ist;
-	string name;
-	string line;
-	vector<string> lines;
-	vector<ZZ> *pq;
-	ZZ x;
-	long i, lq, lp, lp1;
+void Functions::pqGen(long lp, long lq) {
+	std::vector<NTL::ZZ>* pq = new vector<ZZ>(4);
+	SetSeed(to_ZZ((unsigned int)time(0)));
+	find_group(pq, lq, lp, 262144);
+}
 
-	name = "config";
-	ist.open(name.c_str());
+void Functions::read_config(vector<long>& num, ZZ& genq)
+{
+	vector<long> para = { 32,16,2,7,6,3,0,5 };
+	num = para;
+	vector<ZZ>* pq = new vector<ZZ>(4);
+	ifstream ist("parameters.txt", ios::in);
 	if (!ist)
 	{
-		cout << "Can't open " << name.c_str();
+		cout << "Can't open parameters.txt" << endl;
 		exit(1);
 	}
-
-	for (i = 1; i <= 13; i++)
+	for (int i = 0; i < 4; i++)
 	{
-		getline(ist, line);
+		ist >> pq->at(i);
 	}
-	getline(ist, line);
-	/* 
-	This parameter determine which version of the program is executed. 
-	0 stands for no optimization inside of the code
-	1 uses multi-exponentiation techniques
-	2 uses multi-exponentiation techniques and FFT to find values E_i
-	3 uses multi-exponentiation techniques, extra interaction and Toom-Cook 4 to find values E_i, in this case m =16 or 64\n
-	*/
-	num[5] = tolong(line);
-
-	for (i = 1; i <= 2; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	//Actual number of ciphertext used in the shuffle protocol
-	num[0] = tolong(line);
-
-	for (i = 1; i <= 3; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	//number of rows m
-	num[1] = tolong(line);
-	getline(ist, line);
-	//number of columns n
-	num[2] = tolong(line);
-
-	for (i = 1; i <= 2; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	//Window size for the sliding window multi-exponentiation technique; default value is 5 for q 160 bits else 6
-	num[4] = tolong(line);
-
-	for (i = 1; i <= 2; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	//Window size of the multi-exponentiation technique by Lim and Lee; default value is 5
-	num[7] = tolong(line);
-
-	for (i = 1; i <= 2; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	//Window size of the multi-exponentiation technique by Brickels et al.; default value is 7
-	num[3] = tolong(line);
-
-	for (i = 1; i <= 4; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	/* 
-	Types of groups uses.
-	0 the same modular group G is used for the commitments and the encryption
-	1 the commitments are calculated in G subset Z_p_1 with order q and the encryption in H subset Z_p_2 with order q
- 	*/
-	num[6] = tolong(line);
-
-	for (i = 1; i <= 5; i++)
-	{
-		getline(ist, line);
-	}
-	getline(ist, line);
-	/* 
-	Name of the file consisting the description of the groups used in the protocol
-	If only one group is used the file should consist of the prime p, prime order q,  a generator of G   and a generator of Z_q
-	If two different groups are used the file should consist of the prime p, prime order q, a generator of G, a generator of Z_q, the prime p1 and a generator of H
-	Or set parameter to 0 if you want to define groups of own choice.
-	 */
-	if (line != "0")
-	{
-		// cout<<"if ";
-		ist.close();
-		if (num[6] == 0)
-		{
-			pq = new vector<ZZ>(4);
-			ifstream ist1(line.c_str(), ios::in);
-			if (!ist1)
-				cout << "Can't open " << line.c_str();
-			for (i = 0; i < 4; i++)
-			{
-				ist1 >> pq->at(i);
-			}
-			ist1.close();
-			// cout<<NumBits(pq->at(1))<<" "<<NumBits(pq->at(0))<<endl;
-			G = G_q(pq->at(2), pq->at(1), pq->at(0)); //ElGammal参数：生成元 阶数 模数
-			H = G_q(pq->at(2), pq->at(1), pq->at(0));
-		}
-		else
-		{
-			pq = new vector<ZZ>(6);
-			ifstream ist1(line.c_str(), ios::in);
-			if (!ist1)
-				cout << "Can't open " << line.c_str();
-			for (i = 0; i < 6; i++)
-			{
-				ist1 >> pq->at(i);
-			}
-			ist1.close();
-			cout << NumBits(pq->at(1)) << " " << NumBits(pq->at(0)) << " " << NumBits(pq->at(4)) << endl;
-			//参数：生成元 阶数 模数
-			G = G_q(pq->at(2), pq->at(1), pq->at(0)); //Pedersen
-			H = G_q(pq->at(5), pq->at(1), pq->at(4)); //ElGammal
-		}
-	}
-	else
-	{
-		if (num[6] == 0)
-		{
-			for (i = 1; i <= 2; i++)
-			{
-				getline(ist, line);
-			}
-			getline(ist, line);
-			lq = tolong(line);
-
-			for (i = 1; i <= 2; i++)
-			{
-				getline(ist, line);
-			}
-			getline(ist, line);
-			lp = tolong(line);
-
-			pq = new vector<ZZ>(4);
-
-			SetSeed(to_ZZ(time(0)));
-			//find_group(pq, lq, lp, num[1]);
-			find_group(pq, lq, lp, 262144);
-			//find_group(pq, lq, lp, 2);
-
-			G = G_q(pq->at(2), pq->at(1), pq->at(0));
-			H = G_q(pq->at(2), pq->at(1), pq->at(0));
-		}
-		else
-		{
-			cout << "else ";
-			for (i = 1; i <= 2; i++)
-			{
-				getline(ist, line);
-			}
-			getline(ist, line);
-			lq = tolong(line);
-
-			for (i = 1; i <= 2; i++)
-			{
-				getline(ist, line);
-			}
-			getline(ist, line);
-			lp = tolong(line);
-
-			for (i = 1; i <= 2; i++)
-			{
-				getline(ist, line);
-			}
-			getline(ist, line);
-			lp1 = tolong(line);
-
-			pq = new vector<ZZ>(6);
-
-			SetSeed(to_ZZ(time(0)));
-			find_groups(pq, lq, lp, lp1, num[1]);
-			//find_groups(pq, lq, lp, lp1, 262144 );
-
-			G = G_q(pq->at(2), pq->at(1), pq->at(0));
-			H = G_q(pq->at(5), pq->at(1), pq->at(4));
-		}
-
-		ist.close();
-	}
+	ist.close();
+	// cout<<NumBits(pq->at(1))<<" "<<NumBits(pq->at(0))<<endl;
+	G = G_q(pq->at(2), pq->at(1), pq->at(0)); //ElGammal参数：生成元 阶数 模数
+	H = G_q(pq->at(2), pq->at(1), pq->at(0));
+	genq = pq->at(3);
 
 	El.set_group(H);
 	ist.open("ElGammal.txt", ios::in);
 	if (!ist)
 	{
-		cout << "\"ElGammal.txt\" does not exist, will be generated randomly" << endl;
-		x = RandomBnd(H.get_ord()); //随机生成私钥
-		El.set_sk(x);				//生成公钥
+		cout << "Can't open ElGammal.txt" << endl;
+		exit(1);
 	}
-	else
-	{
-		string sk_str, pk_str;
-		ZZ sk, pk;
-		getline(ist, sk_str);
-		getline(ist, pk_str);
-		conv(sk, sk_str.c_str());
-		conv(pk, pk_str.c_str());
-		El.set_key(sk, pk);
-		// cout<<"pk"<<endl;
-	}
-	genq = pq->at(3);
+	string sk_str, pk_str;
+	ZZ sk, pk;
+	getline(ist, sk_str);
+	getline(ist, pk_str);
+	conv(sk, sk_str.c_str());
+	conv(pk, pk_str.c_str());
+	El.set_key(sk, pk);
+	ist.close();
+
 	delete pq;
 }
 
@@ -291,13 +106,13 @@ string Functions::tostring(ZZ n)
 }
 
 //Creates a matrix of N random elements, if N<n*m 1 is encrypted in the last elements
-vector<vector<Cipher_elg> *> *Functions::createCipher(vector<long> num)
+vector<vector<Cipher_elg>*>* Functions::createCipher(vector<long> num)
 {
 	long N = num[0];
 	long m = num[1];
 	long n = num[2];
-	vector<vector<Cipher_elg> *> *C = new vector<vector<Cipher_elg> *>(m);
-	vector<Cipher_elg> *r = 0;
+	vector<vector<Cipher_elg>*>* C = new vector<vector<Cipher_elg>*>(m);
+	vector<Cipher_elg>* r = 0;
 	Cipher_elg temp;
 	ofstream ost;
 	ZZ ran_2, ord;
@@ -338,12 +153,12 @@ vector<vector<Cipher_elg> *> *Functions::createCipher(vector<long> num)
 	return C;
 }
 
-void Functions::createCipher(vector<vector<Cipher_elg> *> *C, vector<long> num)
+void Functions::createCipher(vector<vector<Cipher_elg>*>* C, vector<long> num)
 {
 	long N = num[0];
 	long m = num[1]; //行
 	long n = num[2]; //列
-	vector<Cipher_elg> *r = 0;
+	vector<Cipher_elg>* r = 0;
 	Cipher_elg temp;
 	ZZ ran_2, ord;
 	Mod_p ran_1;
@@ -355,7 +170,16 @@ void Functions::createCipher(vector<vector<Cipher_elg> *> *C, vector<long> num)
 	count = 1;
 	ord = H.get_ord(); //order of the group
 
-	Mod_p plaintexts[m][n];
+	//Mod_p plaintexts[m][n];
+	vector<vector<Mod_p>> plaintexts;
+	for (int vi = 0; vi < m; vi++) {
+		vector<Mod_p> v_temp;
+		for (int vj = 0; vj < n; vj++) {
+			Mod_p temp_p;
+			v_temp.push_back(temp_p);
+		}
+		plaintexts.push_back(v_temp);
+	}
 	/*	string name = "example.txt";
 	ofstream ost;
 	ost.open(name.c_str(),ios::app);
@@ -434,7 +258,7 @@ void Functions::createCipher(vector<vector<Cipher_elg> *> *C, vector<long> num)
 	} */
 }
 
-void Functions::inputCipher(vector<vector<Cipher_elg> *> *C, vector<long> num)
+void Functions::inputCipher(vector<vector<Cipher_elg>*>*& Cipher, vector<long> num)
 {
 	long m = num[1]; //行
 	long n = num[2]; //列
@@ -443,92 +267,57 @@ void Functions::inputCipher(vector<vector<Cipher_elg> *> *C, vector<long> num)
 	ist.open("cipher_in.txt", ios::in);
 	if (!ist)
 	{
-		cout << "\"cipher_in.txt\" does not exist, " << flush;
-		if (DEBUG)
-		{
-			cout << "will be generated randomly" << endl;
-			createCipher(C, num);
-		}
-		else
-		{
-			cout << "please input." << endl;
-			exit(1);
-		}
+		cout << "Can't open cipher_in.txt" << endl;
+		exit(1);
 	}
-	else
-		readCipher(C,ist,m,n);
+	readCipher(Cipher, ist, num);
 	ist.close();
-	/* {
-		for (int i = 0; i < m; i++)
-		{
-			char *uvs[n];
-			r = new vector<Cipher_elg>(n);
-			getline(ist, line);
-			char *strc = new char[strlen(line.c_str()) + 1];
-			strcpy(strc, line.c_str()); //string转换成C-string
-			uvs[0] = strtok(strc, pattern1.c_str());
-			for (int j = 1; j < n; j++) //分离出(u,v)
-				uvs[j] = strtok(NULL, pattern1.c_str());
-			for (int j = 0; j < n; j++)
-			{ //分离出u和v
-				char *str_u_t = strtok(uvs[j], pattern2.c_str());
-				char *str_v = strtok(NULL, pattern2.c_str());
-				char str_u[strlen(str_u_t)] = {'\0'};
-				memcpy(str_u, str_u_t + 1, strlen(str_u_t));
-				str_u[strlen(str_u_t) - 1] = '\0';
-				str_v[strlen(str_v) - 1] = '\0';
-				ZZ u, v;
-				conv(u, str_u);
-				conv(v, str_v);
-				Cipher_elg temp = Cipher_elg(u, v, H.get_mod());
-				r->at(j) = temp;
-			}
-			delete[] strc;
-			C->at(i) = r;
-		}
-	} */
 }
 
-void Functions::readCipher(vector<vector<Cipher_elg> *> *C, ifstream &ist, int m, int n)
+void Functions::readCipher(vector<vector<Cipher_elg>*>*& Cipher, ifstream& ist, vector<long> num)
 {
-	string line;
-	string pattern1 = " ";
-	string pattern2 = ",";
-	vector<Cipher_elg> *r = 0;
-	for (int i = 0; i < m; i++)
-	{
-		char *uvs[n];
-		r = new vector<Cipher_elg>(n);
-		getline(ist, line);
-		char *strc = new char[strlen(line.c_str()) + 1];
-		strcpy(strc, line.c_str()); //string转换成C-string
-		uvs[0] = strtok(strc, pattern1.c_str());
-		for (int j = 1; j < n; j++) //分离出(u,v)
-			uvs[j] = strtok(NULL, pattern1.c_str());
-		for (int j = 0; j < n; j++)
-		{ //分离出u和v
-			char *str_u_t = strtok(uvs[j], pattern2.c_str());
-			char *str_v = strtok(NULL, pattern2.c_str());
-			char str_u[strlen(str_u_t)] = {'\0'};
-			memcpy(str_u, str_u_t + 1, strlen(str_u_t));
-			str_u[strlen(str_u_t) - 1] = '\0';
-			str_v[strlen(str_v) - 1] = '\0';
-			ZZ u, v;
-			conv(u, str_u);
-			conv(v, str_v);
-			Cipher_elg temp = Cipher_elg(u, v, H.get_mod());
+	int m, n, amount, index_m = 0, index_n = 0, index = 0;
+	string in_temp, u_str, v_str;
+	size_t pos_start, pos_mid, pos_end;
+	vector<string> cipher_raw;
+	while (ist >> in_temp)
+		cipher_raw.push_back(in_temp);
+	amount = cipher_raw.size();
+	num[0] = amount;
+	m = num[1];
+	n = amount / 16 + ((amount % 16) ? 1 : 0);
+	num[2] = n;
+	Cipher = new vector<vector<Cipher_elg>*>(m);
+	for (int i = 0; i < m; i++) {
+		vector<Cipher_elg>* r = new vector<Cipher_elg>(n);
+		for (int j = 0; j < n; j++) {
+			Cipher_elg temp;
 			r->at(j) = temp;
 		}
-		delete[] strc;
-		C->at(i) = r;
+		Cipher->at(i) = r;
+	}
+	for (string i : cipher_raw) {
+		index_m = index / n;
+		index_n = index % n;
+		pos_start = i.find("(");
+		pos_mid = i.find(",");
+		pos_end = i.find(")");
+		u_str = i.substr(pos_start + 1, pos_mid - 1);
+		v_str = i.substr(pos_mid + 1, pos_end - pos_mid - 1);
+		ZZ u, v;
+		conv(u, u_str.c_str());
+		conv(v, v_str.c_str());
+		Cipher_elg temp = Cipher_elg(u, v, H.get_mod());
+		Cipher->at(index_m)->at(index_n) = temp;
+		index++;
 	}
 	return;
 }
-void Functions::decryptCipher(vector<vector<Cipher_elg> *> *C, vector<long> num, int flag)
+void Functions::decryptCipher(vector<vector<Cipher_elg>*>* C, vector<long> num, int flag)
 {
 	long m = num[1]; //行
 	long n = num[2]; //列
-	string name[2] = {"pOrigin.txt", "pShuffle.txt"};
+	string name[2] = { "pOrigin.txt", "pShuffle.txt" };
 	ofstream ost;
 	ost.open(name[flag], ios::out);
 	ZZ plaintext;
@@ -544,12 +333,12 @@ void Functions::decryptCipher(vector<vector<Cipher_elg> *> *C, vector<long> num,
 }
 
 //Creates a matrix of random numbers
-vector<vector<ZZ> *> *Functions::randomEl(vector<long> num)
+vector<vector<ZZ>*>* Functions::randomEl(vector<long> num)
 {
 	long m = num[1];
 	long n = num[2];
-	vector<vector<ZZ> *> *R = new vector<vector<ZZ> *>(m);
-	vector<ZZ> *r = 0;
+	vector<vector<ZZ>*>* R = new vector<vector<ZZ>*>(m);
+	vector<ZZ>* r = 0;
 	ZZ ran, ord;
 	long i, j;
 	ord = H.get_ord();
@@ -566,11 +355,11 @@ vector<vector<ZZ> *> *Functions::randomEl(vector<long> num)
 	return R;
 }
 
-void Functions::randomEl(vector<vector<ZZ> *> *R, vector<long> num)
+void Functions::randomEl(vector<vector<ZZ>*>* R, vector<long> num)
 {
 	long m = num[1];
 	long n = num[2];
-	vector<ZZ> *r = 0;
+	vector<ZZ>* r = 0;
 	ZZ ran, ord;
 	long i, j;
 	ord = H.get_ord();
@@ -593,13 +382,13 @@ void Functions::randomEl(vector<vector<ZZ> *> *R, vector<long> num)
 }
 
 //reencrypts the ciphertexts e using the permutation pi and the random elements R
-vector<vector<Cipher_elg> *> *Functions::reencryptCipher(vector<vector<Cipher_elg> *> *e, vector<vector<vector<long> *> *> *pi, vector<vector<ZZ> *> *R, vector<long> num)
+vector<vector<Cipher_elg>*>* Functions::reencryptCipher(vector<vector<Cipher_elg>*>* e, vector<vector<vector<long>*>*>* pi, vector<vector<ZZ>*>* R, vector<long> num)
 {
 	long n, m;
 	m = num[1];
 	n = num[2];
-	vector<vector<Cipher_elg> *> *C = new vector<vector<Cipher_elg> *>(m);
-	vector<Cipher_elg> *r = 0;
+	vector<vector<Cipher_elg>*>* C = new vector<vector<Cipher_elg>*>(m);
+	vector<Cipher_elg>* r = 0;
 	Cipher_elg temp;
 	ZZ ran;
 	long i, j;
@@ -619,12 +408,12 @@ vector<vector<Cipher_elg> *> *Functions::reencryptCipher(vector<vector<Cipher_el
 	return C;
 }
 
-void Functions::reencryptCipher(vector<vector<Cipher_elg> *> *C, vector<vector<Cipher_elg> *> *e, vector<vector<vector<long> *> *> *pi, vector<vector<ZZ> *> *R, vector<long> num)
+void Functions::reencryptCipher(vector<vector<Cipher_elg>*>* C, vector<vector<Cipher_elg>*>* e, vector<vector<vector<long>*>*>* pi, vector<vector<ZZ>*>* R, vector<long> num)
 {
 	long n, m;
 	m = num[1]; //行
 	n = num[2]; //列
-	vector<Cipher_elg> *r = 0;
+	vector<Cipher_elg>* r = 0;
 	Cipher_elg temp;
 	ZZ ran;
 	long i, j;
@@ -650,7 +439,7 @@ void Functions::reencryptCipher(vector<vector<Cipher_elg> *> *C, vector<vector<C
 }
 
 //Returns the Hadamard product of x and y
-void Functions::Hadamard(vector<ZZ> *ret, vector<ZZ> *x, vector<ZZ> *y)
+void Functions::Hadamard(vector<ZZ>* ret, vector<ZZ>* x, vector<ZZ>* y)
 {
 
 	long n, m, i;
@@ -672,12 +461,12 @@ void Functions::Hadamard(vector<ZZ> *ret, vector<ZZ> *x, vector<ZZ> *y)
 }
 
 //returns the bilinear map of x and y, defined as x(y¡t)^T
-ZZ Functions::bilinearMap(vector<ZZ> *x, vector<ZZ> *y, vector<ZZ> *t)
+ZZ Functions::bilinearMap(vector<ZZ>* x, vector<ZZ>* y, vector<ZZ>* t)
 {
 	long i, l;
 	ZZ result, ord, tem;
 
-	vector<ZZ> *temp = new vector<ZZ>(x->size());
+	vector<ZZ>* temp = new vector<ZZ>(x->size());
 
 	ord = H.get_ord();
 	Hadamard(temp, y, t);
@@ -887,7 +676,7 @@ void Functions::find_stat_group()
 }
 
 //finds prime numbers q,p such that p = 2*a*q+1 using test provided by Mau94, lp,lq are the number of bits of q,p
-void Functions::find_group(vector<ZZ> *pq, long lq, long lp, long m)
+void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 {
 	long l, i, j, logl;
 	ZZ mod30;
@@ -896,7 +685,7 @@ void Functions::find_group(vector<ZZ> *pq, long lq, long lp, long m)
 	int count = 0;
 	string name;
 	//q-1 needs to be divisible by 2*m, such that we can find a 2m-root of unity
-	cout << lp << " " << lq << endl;
+	cout << "Expectation: p " << lp << " bit | q " << lq << " bit" << endl;
 	if ((lp - lq) > 2)
 	{
 		bol = false;
@@ -1021,10 +810,11 @@ void Functions::find_group(vector<ZZ> *pq, long lq, long lp, long m)
 	pq->at(2) = gen;
 	//Generator of Z_q
 	pq->at(3) = genq;
-	cout << NumBits(pq->at(1)) << " " << NumBits(pq->at(0)) << endl;
+	cout << "Actuality  : p " << NumBits(pq->at(0)) << " bit | q " << NumBits(pq->at(1)) << " bit" << endl;
+	//cout << NumBits(pq->at(1)) << " " << NumBits(pq->at(0)) << endl;
 	ofstream ost;
 
-	name = tostring(lq) + "_" + tostring(lp);
+	name = "pqhg.txt";
 	ost.open(name.c_str());
 	ost << p << endl;
 	ost << q << endl;
@@ -1034,7 +824,7 @@ void Functions::find_group(vector<ZZ> *pq, long lq, long lp, long m)
 }
 
 //finds prime numbers q,p, p1 such that p = 2*a*q+1 and p1=2*b*q+1 using test provided by Mau94, lp,lq are the number of bits of q,p
-void Functions::find_groups(vector<ZZ> *pq, long lq, long lp, long lp1, long m)
+void Functions::find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m)
 {
 	ZZ q, q1, p1, a, gen;
 	bool b, bo, bol;
@@ -1163,7 +953,7 @@ bool Functions::checkPow(ZZ a, ZZ q1, ZZ q)
 	return b;
 }
 
-long Functions::checkL1(ZZ &a, ZZ q, ZZ q1)
+long Functions::checkL1(ZZ& a, ZZ q, ZZ q1)
 {
 	long i;
 	ZZ an;
@@ -1181,7 +971,7 @@ long Functions::checkL1(ZZ &a, ZZ q, ZZ q1)
 	return i;
 }
 
-long Functions::checkL1(ZZ &a, ZZ q, ZZ q1, ZZ q2)
+long Functions::checkL1(ZZ& a, ZZ q, ZZ q1, ZZ q2)
 {
 	long i;
 	ZZ an;
@@ -1199,7 +989,7 @@ long Functions::checkL1(ZZ &a, ZZ q, ZZ q1, ZZ q2)
 	return i;
 }
 
-bool Functions::new_q(ZZ &q, ZZ &q1, ZZ &q2, long m, long l)
+bool Functions::new_q(ZZ& q, ZZ& q1, ZZ& q2, long m, long l)
 {
 	bool b;
 
@@ -1212,7 +1002,7 @@ bool Functions::new_q(ZZ &q, ZZ &q1, ZZ &q2, long m, long l)
 	return b;
 }
 
-bool Functions::check_q(ZZ &a, ZZ &q, ZZ &q1, ZZ &q2, long m, long l)
+bool Functions::check_q(ZZ& a, ZZ& q, ZZ& q1, ZZ& q2, long m, long l)
 {
 	bool b, bo;
 	long i;
@@ -1238,7 +1028,7 @@ bool Functions::check_q(ZZ &a, ZZ &q, ZZ &q1, ZZ &q2, long m, long l)
 	return b;
 }
 
-bool Functions::new_p(ZZ &p, ZZ &q1, ZZ q, long l)
+bool Functions::new_p(ZZ& p, ZZ& q1, ZZ q, long l)
 {
 	bool b;
 	q1 = GenPrime_ZZ(l);
@@ -1248,7 +1038,7 @@ bool Functions::new_p(ZZ &p, ZZ &q1, ZZ q, long l)
 	return b;
 }
 
-bool Functions::new_p(ZZ &p, ZZ &q1, ZZ &q2, ZZ q, long l)
+bool Functions::new_p(ZZ& p, ZZ& q1, ZZ& q2, ZZ q, long l)
 {
 	bool b;
 	long len;
@@ -1266,7 +1056,7 @@ bool Functions::new_p(ZZ &p, ZZ &q1, ZZ &q2, ZZ q, long l)
 	return b;
 }
 
-bool Functions::check_p(ZZ &a, ZZ &p, ZZ &q1, ZZ q, long l, long &j)
+bool Functions::check_p(ZZ& a, ZZ& p, ZZ& q1, ZZ q, long l, long& j)
 {
 	bool b, bo;
 	long i;
@@ -1292,7 +1082,7 @@ bool Functions::check_p(ZZ &a, ZZ &p, ZZ &q1, ZZ q, long l, long &j)
 	return b;
 }
 
-bool Functions::check_p(ZZ &a, ZZ &p, ZZ &q1, ZZ &q2, ZZ q, long l, long &j)
+bool Functions::check_p(ZZ& a, ZZ& p, ZZ& q1, ZZ& q2, ZZ q, long l, long& j)
 {
 	bool b, bo;
 	long i;
@@ -1319,7 +1109,7 @@ bool Functions::check_p(ZZ &a, ZZ &p, ZZ &q1, ZZ &q2, ZZ q, long l, long &j)
 }
 
 //help functions to delete matrices
-void Functions::delete_vector(vector<vector<ZZ> *> *v)
+void Functions::delete_vector(vector<vector<ZZ>*>* v)
 {
 	long i;
 	long l = v->size();
@@ -1332,7 +1122,7 @@ void Functions::delete_vector(vector<vector<ZZ> *> *v)
 	delete v;
 }
 
-void Functions::delete_vector(vector<vector<long> *> *v)
+void Functions::delete_vector(vector<vector<long>*>* v)
 {
 	long i;
 	long l = v->size();
@@ -1344,7 +1134,7 @@ void Functions::delete_vector(vector<vector<long> *> *v)
 	}
 	delete v;
 }
-void Functions::delete_vector(vector<vector<Cipher_elg> *> *v)
+void Functions::delete_vector(vector<vector<Cipher_elg>*>* v)
 {
 	long i;
 	long l = v->size();
@@ -1357,7 +1147,7 @@ void Functions::delete_vector(vector<vector<Cipher_elg> *> *v)
 	delete v;
 }
 
-void Functions::delete_vector(vector<vector<vector<long> *> *> *v)
+void Functions::delete_vector(vector<vector<vector<long>*>*>* v)
 {
 	long i;
 	long l = v->size();
@@ -1369,7 +1159,7 @@ void Functions::delete_vector(vector<vector<vector<long> *> *> *v)
 	delete v;
 }
 
-void Functions::delete_vector(vector<vector<vector<ZZ> *> *> *v)
+void Functions::delete_vector(vector<vector<vector<ZZ>*>*>* v)
 {
 	long i;
 	long l = v->size();
@@ -1383,7 +1173,7 @@ void Functions::delete_vector(vector<vector<vector<ZZ> *> *> *v)
 
 // help functions, which pick random values and commit to a vector/matrix
 //picks random value r and commits to the vector a,
-void Functions::commit(vector<ZZ> *a, ZZ &r, Mod_p &com)
+void Functions::commit(vector<ZZ>* a, ZZ& r, Mod_p& com)
 {
 	ZZ ord = H.get_ord();
 
@@ -1396,7 +1186,7 @@ void Functions::commit(vector<ZZ> *a, ZZ &r, Mod_p &com)
 }
 
 //picks random values r and commits to the rows of the matrix a, a,r,com are variables of Prover
-void Functions::commit(vector<vector<ZZ> *> *a_in, vector<ZZ> *r, vector<Mod_p> *com)
+void Functions::commit(vector<vector<ZZ>*>* a_in, vector<ZZ>* r, vector<Mod_p>* com)
 {
 	long i, l;
 	ZZ ord = H.get_ord();
@@ -1421,7 +1211,7 @@ void Functions::commit(vector<vector<ZZ> *> *a_in, vector<ZZ> *r, vector<Mod_p> 
 }
 
 //picks random value r and commits to the vector a,
-void Functions::commit_op(vector<ZZ> *a, ZZ &r, Mod_p &com)
+void Functions::commit_op(vector<ZZ>* a, ZZ& r, Mod_p& com)
 {
 	ZZ ord = H.get_ord();
 
@@ -1430,7 +1220,7 @@ void Functions::commit_op(vector<ZZ> *a, ZZ &r, Mod_p &com)
 }
 
 //picks random values r and commits to the rows of the matrix a, a,r,com are variables of Prover
-void Functions::commit_op(vector<vector<ZZ> *> *a_in, vector<ZZ> *r, vector<Mod_p> *com)
+void Functions::commit_op(vector<vector<ZZ>*>* a_in, vector<ZZ>* r, vector<Mod_p>* com)
 {
 	long i, l;
 	ZZ ord = H.get_ord();
