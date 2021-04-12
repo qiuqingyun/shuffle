@@ -46,8 +46,8 @@ public:
 
 	//find order and modular value such that p = 2*a*q+1, p1=2*b*q+ 1 and it exists a 2m roof of unity
 	static void find_stat_group();
-	static void find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m);
-	static void find_group(vector<ZZ>* pq, long lq, long lp, long m);
+	static int find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m);
+	static int find_group(vector<ZZ>* pq, long lq, long lp, long m);
 	static void set_group();
 	static bool probPrime(ZZ p);
 	static bool checkGCD(ZZ a, ZZ q1, ZZ q);

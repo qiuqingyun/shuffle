@@ -272,6 +272,17 @@ void ElGammal::set_sk(ZZ s) {
 	ost << sk << "\n" << pk << endl;//输出公私钥
 	ost.close();
 }
+void ElGammal::keyGen() {
+	ZZ sk1 = RandomBnd(this->G.get_ord());
+	ZZ sk2 = RandomBnd(this->G.get_ord());
+	sk = AddMod(sk1, sk2, this->G.get_mod());
+	pk = G.get_gen().expo(sk);//生成公钥，y=g^x
+	string name = "ElGammal.txt";
+	ofstream ost;
+	ost.open(name.c_str(), ios::out);
+	ost << pk << "\n" << sk1 << "\n" << sk2 << endl;//输出公私钥
+	ost.close();
+}
 void ElGammal::set_key(ZZ s, ZZ p) {
 	sk = s;//私钥
 	pk = Mod_p(G.get_mod());
@@ -331,9 +342,9 @@ Cipher_elg ElGammal::encrypt(Mod_p el, ZZ ran) {
 	Cipher_elg c;
 	Mod_p temp_1, temp_2;
 	temp_1 = G.get_gen().expo(ran);//h^r
-	temp_2 = pk.expo(ran) * el;//g^m×y^r
-	// temp_2 = pk.expo(ran)*el;//m×y^r
-	c = Cipher_elg(temp_1, temp_2);//得到(u,v)密文组，u = g^r，v = m×y^r
+	temp_2 = pk.expo(ran) * el;//m×y^r
+	// temp_2 = pk.expo(ran)*el;//g^m×y^r
+	c = Cipher_elg(temp_1, temp_2);//得到(u,v)密文组，u = h^r，v = m×y^r
 	return c;
 }
 

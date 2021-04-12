@@ -16,6 +16,8 @@ extern ElGammal El;
 extern Pedersen Ped;
 vector<vector<Cipher_elg>*>* c = 0;	  //原始输入的密文
 vector<vector<Cipher_elg>*>* C = 0;	  //重加密的密文
+int Threshold = 100;
+int exitMax = 10;
 
 #define DEBUG 1
 
@@ -30,9 +32,16 @@ Functions::~Functions()
 }
 
 void Functions::pqGen(long lp, long lq) {
-	std::vector<NTL::ZZ>* pq = new vector<ZZ>(4);
-	SetSeed(to_ZZ((unsigned int)time(0)));
-	find_group(pq, lq, lp, 262144);
+	int flag = 1, index = 0;
+	vector<ZZ>* pq = new vector<ZZ>(6);
+	while (flag || pq->at(0) != pq->at(4))
+	{
+		SetSeed(to_ZZ((unsigned int)time(0) + clock()));
+		//cout << endl;
+		flag = find_groups(pq, lq, lp, lp, 16);
+		if (++index > exitMax)
+			exit(1);
+	}
 }
 
 void Functions::read_config(vector<long>& num, ZZ& genq)
@@ -52,7 +61,7 @@ void Functions::read_config(vector<long>& num, ZZ& genq)
 	}
 	ist.close();
 	// cout<<NumBits(pq->at(1))<<" "<<NumBits(pq->at(0))<<endl;
-	G = G_q(pq->at(2), pq->at(1), pq->at(0)); //ElGammal参数：生成元 阶数 模数
+	G = G_q(pq->at(2), pq->at(1), pq->at(0)); //ElGammal参数：生成元h 阶数q 模数p
 	H = G_q(pq->at(2), pq->at(1), pq->at(0));
 	genq = pq->at(3);
 
@@ -170,7 +179,6 @@ void Functions::createCipher(vector<vector<Cipher_elg>*>* C, vector<long> num)
 	count = 1;
 	ord = H.get_ord(); //order of the group
 
-	//Mod_p plaintexts[m][n];
 	vector<vector<Mod_p>> plaintexts;
 	for (int vi = 0; vi < m; vi++) {
 		vector<Mod_p> v_temp;
@@ -180,12 +188,6 @@ void Functions::createCipher(vector<vector<Cipher_elg>*>* C, vector<long> num)
 		}
 		plaintexts.push_back(v_temp);
 	}
-	/*	string name = "example.txt";
-	ofstream ost;
-	ost.open(name.c_str(),ios::app);
-	ost<<"q "<<ord<<" p"<<H.get_mod()<<endl;
-	ost<<"Ciphertext c "<<endl;*/
-
 	ist.open("plaintext.txt", ios::in);
 	if (!ist)
 	{
@@ -234,28 +236,6 @@ void Functions::createCipher(vector<vector<Cipher_elg>*>* C, vector<long> num)
 		ost << endl;
 		C->at(i) = r;
 	}
-	/* for (i=0; i<m; i++){
-		r  = new vector<Cipher_elg>(n);
-		for (j = 0; j <n; j++){
-			if (count <= N){
-				ran_2 = RandomBnd(ord);//随机数r，也被称作临时密钥
-				ran_1 = H.random_el(0);//明文m
-				temp = El.encrypt(ran_1, ran_2);//得到(u,v)密文组，u = g^r，v = m×y^r，y为公钥
-				r->at(j)=temp;
-				count ++;
-					ost<<temp<<" ";
-			}
-			else
-			{//用1代替生成dummy密文
-				ran_2 = RandomBnd(ord);
-				temp = El.encrypt(1,ran_2);
-				r->at(j)=temp;
-				count++;
-			}
-		}
-			ost<<endl;
-		C->at(i)=r;
-	} */
 }
 
 void Functions::inputCipher(vector<vector<Cipher_elg>*>*& Cipher, vector<long> num)
@@ -313,6 +293,7 @@ void Functions::readCipher(vector<vector<Cipher_elg>*>*& Cipher, ifstream& ist, 
 	}
 	return;
 }
+
 void Functions::decryptCipher(vector<vector<Cipher_elg>*>* C, vector<long> num, int flag)
 {
 	long m = num[1]; //行
@@ -481,211 +462,17 @@ ZZ Functions::bilinearMap(vector<ZZ>* x, vector<ZZ>* y, vector<ZZ>* t)
 	return result;
 }
 
-void Functions::find_stat_group()
-{
-	ZZ q1_t, q2_t, q, q1, q2, q3, q4, p, a;
-	ZZ genq, genq1, genq2, genq3, genq4, gen, gen1, gen2, gen3, gen4, F, an;
-	bool b, bo, bol;
-	long l, lq, lq1, lq2, lq3, lq4, lp, m, logl, j, i;
-	string name;
-
-	m = 64;
-	bol = false;
-	while (bol == false)
-	{
-		lq = 100;
-		l = lq - NumBits(2 * m);
-		//generates q as 2*2*m*q1*q2+1 and tests if q can be prime
-		b = false;
-		bol = true;
-		while (b == false)
-		{
-			b = new_q(q, q1_t, q2_t, m, l);
-		}
-		b = false;
-		while (b == false)
-		{
-			b = check_q(a, q, q1_t, q2_t, m, l);
-		}
-		genq = a;
-
-		lq1 = 200;
-		l = lq1 - NumBits(2 * m);
-		//generates q as 2*2*m*q1*q2+1 and tests if q can be prime
-		b = false;
-		bol = true;
-		while (b == false)
-		{
-			b = new_q(q1, q1_t, q2_t, m, l);
-		}
-		b = false;
-		while (b == false)
-		{
-			b = check_q(a, q1, q1_t, q2_t, m, l);
-		}
-		genq1 = a;
-
-		lq2 = 224;
-		l = lq2 - NumBits(2 * m);
-		//generates q as 2*2*m*q1*q2+1 and tests if q can be prime
-		b = false;
-		bol = true;
-		while (b == false)
-		{
-			b = new_q(q2, q1_t, q2_t, m, l);
-		}
-		b = false;
-		while (b == false)
-		{
-			b = check_q(a, q2, q1_t, q2_t, m, l);
-		}
-		genq2 = a;
-
-		lq3 = 256;
-		l = lq3 - NumBits(2 * m);
-		//generates q as 2*2*m*q1*q2+1 and tests if q can be prime
-		b = false;
-		bol = true;
-		while (b == false)
-		{
-			b = new_q(q3, q1_t, q2_t, m, l);
-		}
-		b = false;
-		while (b == false)
-		{
-			b = check_q(a, q3, q1_t, q2_t, m, l);
-		}
-		genq3 = a;
-
-		lq4 = 400;
-		l = lq4 - NumBits(2 * m);
-		//generates q as 2*2*m*q1*q2+1 and tests if q can be prime
-		b = false;
-		bol = true;
-		while (b == false)
-		{
-			b = new_q(q4, q1_t, q2_t, m, l);
-		}
-		b = false;
-		while (b == false)
-		{
-			b = check_q(a, q4, q1_t, q2_t, m, l);
-		}
-		genq = a;
-
-		lp = 2048;
-		l = lp - lq - lq1 - lq2 - lq3 - lq4;
-		logl = 20 * log(l);
-		bo = false;
-
-		F = q * q1 * q2 * q3 * q4;
-
-		//Generate p as 2*q*q1+1 and test if p is possible prime
-		while (bo == false)
-		{
-			bo = new_p(p, q1_t, F, l);
-		}
-		j = 0;
-		b = false;
-		//If after log tries no p=2*q*q1+1 is prime a new q is picked
-		while (j < logl && b == false)
-		{
-			b = true;
-			for (i = 0; i < 100; i++)
-			{
-				a = RandomBnd(p);
-				an = PowerMod(a, p - 1, p);
-				if (a != 1 && an == 1 && checkGCD(a, q, p) && checkGCD(a, to_ZZ(2), p))
-				{
-					if (checkGCD(a, q1, p) && checkGCD(a, q2, p) && checkGCD(a, q3, p) && checkGCD(a, q4, p))
-					{
-
-						break;
-					}
-				}
-			}
-			if (i == 100)
-			{
-				bo = false;
-				while (bo == false)
-				{
-					bo = new_p(p, q1_t, F, l);
-				}
-				b = false;
-				j++;
-			}
-			else
-			{ //Test if a is primitive, following Mau94 p.143
-				b = checkPow(a, q1_t, p);
-			}
-			if (j == logl)
-			{
-				bol = false;
-			}
-		}
-	}
-
-	//Generator of G_q in Z_p
-	gen = PowerMod(a, 2 * q1_t * q1 * q2 * q3 * q4, p);
-	gen1 = PowerMod(a, 2 * q1_t * q * q2 * q3 * q4, p);
-	gen2 = PowerMod(a, 2 * q1_t * q * q1 * q3 * q4, p);
-	gen3 = PowerMod(a, 2 * q1_t * q * q1 * q2 * q4, p);
-	gen4 = PowerMod(a, 2 * q1_t * q * q1 * q2 * q3, p);
-
-	ofstream ost;
-
-	name = "100_2048";
-	ost.open(name.c_str());
-	ost << p << endl;
-	ost << q << endl;
-	ost << gen << endl;
-	ost << genq << endl;
-	ost.close();
-
-	name = "200_2048";
-	ost.open(name.c_str());
-	ost << p << endl;
-	ost << q1 << endl;
-	ost << gen1 << endl;
-	ost << genq1 << endl;
-	ost.close();
-
-	name = "224_2048";
-	ost.open(name.c_str());
-	ost << p << endl;
-	ost << q2 << endl;
-	ost << gen2 << endl;
-	ost << genq2 << endl;
-	ost.close();
-
-	name = "256_2048";
-	ost.open(name.c_str());
-	ost << p << endl;
-	ost << q3 << endl;
-	ost << gen3 << endl;
-	ost << genq3 << endl;
-	ost.close();
-
-	name = "400_2048";
-	ost.open(name.c_str());
-	ost << p << endl;
-	ost << q4 << endl;
-	ost << gen4 << endl;
-	ost << genq4 << endl;
-	ost.close();
-}
-
 //finds prime numbers q,p such that p = 2*a*q+1 using test provided by Mau94, lp,lq are the number of bits of q,p
-void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
+int Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 {
-	long l, i, j, logl;
+	long l, i, j, logl, index = 0;
 	ZZ mod30;
-	ZZ q, q1, q2, p, a, an, gcd, gcd_1, gcd_2, temp, temp_1, gen, genq;
+	ZZ q, q1, q2, p, a, an, gcd, gcd_1, gcd_2, temp, temp_1, gen, gen2, genq;
 	bool b, bo, bol;
 	int count = 0;
 	string name;
 	//q-1 needs to be divisible by 2*m, such that we can find a 2m-root of unity
-	cout << "Expectation: p " << lp << " bit | q " << lq << " bit" << endl;
+	//cout << "Expectation: p " << lp << " bit | q " << lq << " bit" << endl;
 	if ((lp - lq) > 2)
 	{
 		bol = false;
@@ -698,11 +485,13 @@ void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 			while (b == false)
 			{
 				b = new_q(q, q1, q2, m, l);
+				cout << "." << flush;
 			}
 			b = false;
 			while (b == false)
 			{
 				b = check_q(a, q, q1, q2, m, l);
+				cout << "." << flush;
 			}
 			genq = a;
 
@@ -713,6 +502,9 @@ void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 			{
 				bo = new_p(p, q1, q, l);
 				//bo=new_p(p,q1, q2,q,l);
+				cout << "." << flush;
+				if (index++ > Threshold)
+					return 1;
 			}
 			logl = 20 * log(l);
 			j = 0;
@@ -736,6 +528,7 @@ void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 			{
 				bol = false;
 			}
+			//cout << "." << flush;
 		}
 
 		//Generator of G_q in Z_p
@@ -769,11 +562,13 @@ void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 				{
 					b = true;
 				}
+				cout << "." << flush;
 			}
 			b = false;
 			while (b == false)
 			{
 				b = check_q(a, q, q1, q2, m, l);
+				cout << "." << flush;
 			}
 			genq = a;
 
@@ -800,6 +595,7 @@ void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 					bol = false;
 				}
 			}
+			//cout << "." << flush;
 		}
 
 		//Generator of G_q in Z_p
@@ -810,40 +606,49 @@ void Functions::find_group(vector<ZZ>* pq, long lq, long lp, long m)
 	pq->at(2) = gen;
 	//Generator of Z_q
 	pq->at(3) = genq;
-	cout << "Actuality  : p " << NumBits(pq->at(0)) << " bit | q " << NumBits(pq->at(1)) << " bit" << endl;
+	//cout << "Actuality  : p " << NumBits(pq->at(0)) << " bit | q " << NumBits(pq->at(1)) << " bit" << endl;
 	//cout << NumBits(pq->at(1)) << " " << NumBits(pq->at(0)) << endl;
 	ofstream ost;
 
-	name = "pqhg.txt";
+	name = "parameters.txt";
 	ost.open(name.c_str());
 	ost << p << endl;
 	ost << q << endl;
 	ost << gen << endl;
 	ost << genq << endl;
 	ost.close();
+	return 0;
 }
 
 //finds prime numbers q,p, p1 such that p = 2*a*q+1 and p1=2*b*q+1 using test provided by Mau94, lp,lq are the number of bits of q,p
-void Functions::find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m)
+int Functions::find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m)
 {
 	ZZ q, q1, p1, a, gen;
 	bool b, bo, bol;
 	long logl, l, j;
 	string name;
+	int flag = 0, index = 0;
 
 	bol = false;
 	while (bol == false)
 	{
 		bol = true;
-		find_group(pq, lq, lp, m);
+		flag = find_group(pq, lq, lp, m);
+		if (flag)
+			return flag;
 
 		q = pq->at(1);
 		l = lp1 - lq;
+		if (l <= 1)
+			exit(1);
 		//Generate p1 as 2*q*q1+1 and test if p1 is possible prime
 		bo = false;
 		while (bo == false)
 		{
 			bo = new_p(p1, q1, q, l);
+			cout << "." << flush;
+			if (index++ > Threshold)
+				return 1;
 		}
 		logl = log(l);
 		j = 0;
@@ -861,11 +666,13 @@ void Functions::find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m)
 			{
 				b = check_p(a, p1, q, q1, l, j);
 			}
+			cout << "." << flush;
 		}
 		if (j == logl)
 		{
 			bol = false;
 		}
+		//cout << "." << flush;
 	}
 
 	//Generator of G_q in Z_p1
@@ -875,16 +682,17 @@ void Functions::find_groups(vector<ZZ>* pq, long lq, long lp, long lp1, long m)
 	pq->at(5) = gen;
 
 	ofstream ost;
-	cout << NumBits(pq->at(1)) << " " << NumBits(pq->at(0)) << " " << NumBits(pq->at(4)) << endl;
-	name = tostring(lq) + "_" + tostring(lp) + "_ " + tostring(lp1);
+	//cout << NumBits(pq->at(1)) << " " << NumBits(pq->at(0)) << " " << NumBits(pq->at(4)) << endl;
+	name = "pqhg.txt";
 	ost.open(name.c_str());
 	ost << pq->at(0) << endl;
 	ost << pq->at(1) << endl;
 	ost << pq->at(2) << endl;
-	ost << pq->at(3) << endl;
-	ost << p1 << endl;
+	//ost << pq->at(3) << endl;
+	//ost << p1 << endl;
 	ost << gen;
 	ost.close();
+	return 0;
 }
 
 //Checks if a integer q is probably prime, calls the MillerRabin Test only with 1 witness

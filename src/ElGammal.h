@@ -53,6 +53,7 @@ public:
 	void set_sk(ZZ s);
 	void set_sk(long s);
 	void set_key(ZZ s, ZZ p);
+	void keyGen();
 
 	//encryption and decryption functions
 	Cipher_elg encrypt(Mod_p m);

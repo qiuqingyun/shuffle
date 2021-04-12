@@ -60,13 +60,17 @@ int main(int argc, char** argv)
 		}
 	}
 	if (role == 2) {
-		ZZ lq, lp;
-		conv(lp, argv[2]);
-		conv(lq, argv[3]);
-		long p = to_long(lp);
-		long q = to_long(lq);
+		long p=100, q=90;
+		srand((unsigned)time(NULL));
+		if (argc > 2)
+		{
+			p = atol(argv[2]);
+			q = atol(argv[3]);
+			cout << "s" << endl;
+		}
+		cout << "Parameters generating" << flush;
 		Functions::pqGen(p, q);
-		cout << "Parameters have been generated" << endl;
+		cout << "\nParameters have been generated\n" << endl;
 		return 0;
 	}
 	cout << "You are " << (role ? "Verifier" : "Prover") << "." << endl;
@@ -88,6 +92,7 @@ int main(int argc, char** argv)
 	Functions::read_config(num, genq);
 	m = num[1]; //行数 m
 	c = new vector<vector<Cipher_elg>*>(m); //输入的密文
+	C = new vector<vector<Cipher_elg>*>(m); //输出的密文
 	Functions::inputCipher(c, num);
 	n = num[2]; //列数 n
 	if (role == 0)
@@ -126,16 +131,30 @@ int main(int argc, char** argv)
 		//生成用于重加密的随机数，创建random.txt，内容为m×n(16×5)个随机数
 		Functions::randomEl(R, num);
 		//输出的密文
-		C = new vector<vector<Cipher_elg>*>(m);
+
 		//使用换元pi和随机元素R对密文e进行重新加密，创建reencrypted_ciper.txt，内容为mxn(16x5)个二元重加密后的(u,v)密文组
 		Functions::reencryptCipher(C, c, pi, R, num);
-		//Functions::decryptCipher(c, num, 0);
-		//Functions::decryptCipher(C, num, 1);
+		/*Functions::decryptCipher(c, num, 0);
+		Functions::decryptCipher(C, num, 1);*/
 
 		//shuffle开始结束
 		tstop = (double)clock() / CLOCKS_PER_SEC;
 		ttime = (tstop - tstart) * 1000;
 		cout << "To shuffle the ciphertexts took " << ttime << " ms." << endl;
+	}
+	else {
+		ifstream ist;
+		string in_name = "cipher_out.txt";
+		ist.open(in_name.c_str(), ios::in);
+		if (!ist)
+		{
+			cout << "Can't open " << in_name;
+			exit(1);
+		}
+		Functions::readCipher(C, ist, num);
+		ist.close();
+		/*Functions::decryptCipher(c, num, 0);
+		Functions::decryptCipher(C, num, 1);*/
 	}
 	//正确性证明
 	shuffle_w_toom(c, C, R, pi, num, genq, role);

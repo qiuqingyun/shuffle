@@ -493,48 +493,6 @@ int Verifier_toom::round_10(vector<vector<Cipher_elg>*>* cc, vector<vector<Ciphe
 	func_ver::fill_x8(chal_x8, basis_chal_x8, mul_chal_x8, omega, chal_x8_temp);
 	ist.close();
 
-	C = new vector<vector<Cipher_elg>*>(m);
-	string in_name = "cipher_out.txt";
-	ist.open(in_name.c_str(), ios::in);
-	if (!ist)
-	{
-		cout << "Can't open " << in_name;
-		exit(1);
-	}
-
-	int m, n, amount, index_m = 0, index_n = 0, index = 0;
-	string in_temp, u_str, v_str;
-	size_t pos_start, pos_mid, pos_end;
-	vector<string> cipher_raw;
-	while (ist >> in_temp)
-		cipher_raw.push_back(in_temp);
-	ist.close();
-	m = num[1];
-	n = num[2];
-	for (int i = 0; i < m; i++) {
-		vector<Cipher_elg>* r = new vector<Cipher_elg>(n);
-		for (int j = 0; j < n; j++) {
-			Cipher_elg temp;
-			r->at(j) = temp;
-		}
-		C->at(i) = r;
-	}
-	for (string i : cipher_raw) {
-		index_m = index / n;
-		index_n = index % n;
-		pos_start = i.find("(");
-		pos_mid = i.find(",");
-		pos_end = i.find(")");
-		u_str = i.substr(pos_start + 1, pos_mid - 1);
-		v_str = i.substr(pos_mid + 1, pos_end - pos_mid - 1);
-		ZZ u, v;
-		conv(u, u_str.c_str());
-		conv(v, v_str.c_str());
-		Cipher_elg temp = Cipher_elg(u, v, H.get_mod());
-		C->at(index_m)->at(index_n) = temp;
-		index++;
-	}
-
 	array<ZZ, 6> hashChk; //hash—È÷§
 	for (int i = 0; i < 6; i++)
 	{
@@ -547,55 +505,67 @@ int Verifier_toom::round_10(vector<vector<Cipher_elg>*>* cc, vector<vector<Ciphe
 	}
 
 	int flag = 0;
+	int errorCode = 0;
 	//Check that the D_hi's are constructed correctly
 	// cout<<"omega_LL: "<<omega_LL<<endl;
 	//b = func_ver::check_Dh_op(c_Dh, mul_chal_x8, D_h_bar, r_Dh_bar, omega_LL);
 	if (func_ver::check_Dh_op(c_Dh, mul_chal_x8, D_h_bar, r_Dh_bar, omega_LL))
-	{
+	{//0
+		++errorCode;
 		//Check that matrix D is constructed correctly
 		//b = func_ver::check_D_op(c_D0, c_z, c_A, c_B, chal_x8, chal_y4, A_bar, r_A_bar, n);
 		if (func_ver::check_D_op(c_D0, c_z, c_A, c_B, chal_x8, chal_y4, A_bar, r_A_bar, n))
-		{
+		{//1
+			++errorCode;
 			//Check that D_s is constructed correctly
 			//b = func_ver::check_Ds_op(c_Ds, c_Dh, c_Dm, chal_x6, chal_x8, Ds_bar, r_Ds_bar);
 			if (func_ver::check_Ds_op(c_Ds, c_Dh, c_Dm, chal_x6, chal_x8, Ds_bar, r_Ds_bar))
-			{
+			{//2
+				++errorCode;
 				//Check that the Dl's are correct
 				//b = func_ver::check_Dl_op(c_Dl, chal_x8, A_bar, Ds_bar, chal_y6, r_Dl_bar);
 				if (func_ver::check_Dl_op(c_Dl, chal_x8, A_bar, Ds_bar, chal_y6, r_Dl_bar))
-				{
+				{//3
+					++errorCode;
 					//Check that vector d was constructed correctly
 					//b = func_ver::check_d_op(c_Dh, c_d, chal_x8, d_bar, r_d_bar);
 					if (func_ver::check_d_op(c_Dh, c_d, chal_x8, d_bar, r_d_bar))
-					{
+					{//4
+						++errorCode;
 						//Check that Deltas are constructed correctly
 						//b = func_ver::check_Delta_op(c_dh, c_Delta, chal_x8, Delta_bar, d_bar, r_Delta_bar, chal_x2, chal_z4, chal_y4);
 						if (func_ver::check_Delta_op(c_dh, c_Delta, chal_x8, Delta_bar, d_bar, r_Delta_bar, chal_x2, chal_z4, chal_y4))
-						{
+						{//5
+							++errorCode;
 							//Check that the commitments a_T contain the right values
 							//b = check_B();
 							if (check_B())
-							{
+							{//6
+								++errorCode;
 								//Check that the reecncryption was done correctly
 								//b = check_a();
 								if (check_a())
-								{
+								{//7
+									++errorCode;
 									//Check that E_c->at(mu-1) contains c and D->at(4) = C
 									//b = check_c(c); //Both commitments shoud be com(0,0)
 									if (check_c(c) & (c_a->at(4) == c_a_c->at(3)))
-									{
+									{//8
+										++errorCode;
 										//Check correctness of the chiphertexts
 										//b = check_E(C);
-										if (check_E(C))
-										{
+										if (check_E(Cc))
+										{//9
+											++errorCode;
 											//Check the the reencryption of the E_c is correct
 											//b = check_ac();
 											if (check_ac())
-											{
+											{//10
+												++errorCode;
 												//Check the the hash
 												//b = check_hash(hashChk);
 												if (check_hash(hashChk))
-												{
+												{//11
 													flag = 1;
 												}
 											}
@@ -616,6 +586,9 @@ int Verifier_toom::round_10(vector<vector<Cipher_elg>*>* cc, vector<vector<Ciphe
 	ost.open("ans.txt", ios::out);
 	ost << ans << endl;
 	ost.close();
+	string errorStr[] = { "Dh","D","Ds","Dl" ,"d" ,"Delta" ,"B" ,"a" ,"c" ,"E" ,"ac" ,"hash" };
+	if (!flag)
+		cout <<"ERROR: "<< errorStr[errorCode] << endl;
 	return flag;
 }
 
@@ -732,42 +705,6 @@ int Verifier_toom::check_B()
 	return 0;
 }
 
-int Verifier_toom::check_B_red()
-{
-	long i, j;
-	Mod_p temp, temp_1, t_B, co_B;
-	ZZ mod = G.get_mod();
-	vector<Mod_p>* c_B_temp = new vector<Mod_p>(m_r + 1);
-
-	c_B_temp->at(0) = c_B0;
-	for (i = 0; i < m_r; i++)
-	{
-		temp = c_B_small->at(4 * i);
-		for (j = 1; j < mu; j++)
-		{
-			Mod_p::expo(temp_1, c_B_small->at(4 * i + j), chal_x6->at(j - 1));
-			Mod_p::mult(temp, temp, temp_1);
-		}
-		c_B_temp->at(i + 1) = temp;
-	}
-	t_B = c_B_temp->at(0);
-	for (i = 1; i < m_r + 1; i++)
-	{
-		Mod_p::expo(temp, c_B_temp->at(i), chal_x8->at(i - 1));
-		Mod_p::mult(t_B, t_B, temp);
-	}
-	delete c_B_temp;
-	co_B = Ped.commit_opt(B_bar, r_B_bar);
-	//	cout<<"B "<<t_B<<endl;
-	//	cout<<"B "<<co_B<<endl;
-
-	if (t_B == co_B)
-	{
-		return 1;
-	}
-	return 0;
-}
-
 int Verifier_toom::check_a()
 {
 	long i;
@@ -801,20 +738,6 @@ int Verifier_toom::check_c(vector<vector<Cipher_elg>*>* enc)
 	//	cout<<"C "<<C_c->at(mu-1)<<" "<<c<<endl;
 	//	cout<<"C "<<E->at(4)<<" "<<C<<endl;
 	if (C_c->at(mu - 1) == c & E->at(4) == C)
-	{
-		return 1;
-	}
-	return 0;
-}
-
-int Verifier_toom::check_c_red()
-{
-	Cipher_elg C;
-
-	calculate_C(C, C_c, chal_x6);
-	//	cout<<C<<endl;
-	//	cout<<E->at(4)<<endl;
-	if (E->at(4) == C)
 	{
 		return 1;
 	}
@@ -877,79 +800,6 @@ int Verifier_toom::check_E(vector<vector<Cipher_elg>*>* C)
 	Functions::delete_vector(C_small);
 	// cout<<"E"<<t_D<<endl;
 	// cout<<"E"<<c_D<<endl;
-	if (t_D == c_D)
-	{
-		return 1;
-	}
-	return 0;
-}
-
-int Verifier_toom::check_E_red(vector<vector<Cipher_elg>*>* C)
-{
-	long i, j, l;
-	Mod_p temp;
-	Mod_p gen = H.get_gen();
-	Cipher_elg temp_1, temp_2, t_D, c_D;
-	vector<ZZ>* x_temp = new vector<ZZ>(4);
-	vector<ZZ>* chal_1_temp = new vector<ZZ>(4);
-	vector<ZZ>* chal_2_temp = new vector<ZZ>(4);
-	vector<vector<Cipher_elg>*>* C_small_temp = 0;
-	vector<Cipher_elg>* row_C;
-
-	for (i = 0; i < 3; i++)
-	{
-		x_temp->at(i) = x->at(2 - i);
-	}
-	x_temp->at(3) = 1;
-
-	l = mu * m_r;
-	for (i = 0; i < l; i++)
-	{
-		row_C = new vector<Cipher_elg>(n);
-		for (j = 0; j < n; j++)
-		{
-			multi_expo::multi_expo_LL(row_C->at(j), C->at(4 * i)->at(j), C->at(4 * i + 1)->at(j), C->at(4 * i + 2)->at(j), C->at(4 * i + 3)->at(j), x_temp, omega_sw);
-		}
-		C_small->at(i) = row_C;
-	}
-
-	for (i = 0; i < 3; i++)
-	{
-		chal_1_temp->at(i) = chal_x6->at(2 - i);
-	}
-	chal_1_temp->at(3) = 1;
-
-	C_small_temp = new vector<vector<Cipher_elg>*>(m_r);
-	for (i = 0; i < m_r; i++)
-	{
-		row_C = new vector<Cipher_elg>(n);
-		for (j = 0; j < n; j++)
-		{
-			multi_expo::multi_expo_LL(row_C->at(j), C_small->at(4 * i)->at(j), C_small->at(4 * i + 1)->at(j), C_small->at(4 * i + 2)->at(j), C_small->at(4 * i + 3)->at(j), chal_1_temp, omega);
-		}
-		C_small_temp->at(i) = row_C;
-	}
-
-	for (i = 0; i < 3; i++)
-	{
-		chal_2_temp->at(i) = chal_x8->at(2 - i);
-	}
-	chal_2_temp->at(3) = to_ZZ(1);
-
-	Mod_p::expo(temp, gen, a_bar);
-	temp_2 = El.encrypt(temp, rho_bar);
-	multi_expo::expo_mult(temp_1, C_small_temp, chal_2_temp, B_bar, omega);
-	Cipher_elg::mult(c_D, temp_1, temp_2);
-	//c_D=temp_2*temp_1;
-
-	multi_expo::expo_mult(t_D, E, basis_chal_x8, omega);
-	Functions::delete_vector(C_small);
-	Functions::delete_vector(C_small_temp);
-	delete chal_2_temp;
-	delete chal_1_temp;
-	delete x_temp;
-	//cout<<"E"<<t_D<<endl;
-	//cout<<"E"<<c_D<<endl;
 	if (t_D == c_D)
 	{
 		return 1;
